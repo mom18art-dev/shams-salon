@@ -402,7 +402,7 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);color:
         <div class="srow"><div class="slbl">وقت النهاية</div><select class="sinp" id="wEnd"></select></div>
         <div class="srow">
           <div class="slbl">⏱️ متوسط وقت الخدمة</div>
-          <select class="sinp" id="avgMins"><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option><option value="25">25 دقيقة</option><option value="30" selected>30 دقيقة</option><option value="45">45 دقيقة</option><option value="60">ساعة</option></select>
+          <select class="sinp" id="avgMins"><option value="15">15 دقيقة</option><option value="20">20 دقيقة</option><option value="25">25 دقيقة</option><option value="30">30 دقيقة</option><option value="45">45 دقيقة</option><option value="60" selected>ساعة</option></select>
         </div>
         <button class="save-btn" onclick="saveHours()">💾 حفظ</button>
       </div>
@@ -450,7 +450,7 @@ const _app=initializeApp({apiKey:"AIzaSyDJiUW6zjEeBV2Aag8N8Fga13SEIlAr8AM",authD
 const _db=getFirestore(_app);
 const DB=doc(_db,"shams","data");
 
-const ALL_SLOTS=["12:00 م","1:00 م","2:00 م","3:00 م","4:00 م","5:00 م","6:00 م","7:00 م","8:00 م","9:00 م","10:00 م","11:00 م","12:00 ص","1:00 ص","2:00 ص","3:00 ص","4:00 ص","5:00 ص","6:00 ص"];
+const ALL_SLOTS=["12:00 م","12:30 م","1:00 م","1:30 م","2:00 م","2:30 م","3:00 م","3:30 م","4:00 م","4:30 م","5:00 م","5:30 م","6:00 م","6:30 م","7:00 م","7:30 م","8:00 م","8:30 م","9:00 م","9:30 م","10:00 م","10:30 م","11:00 م","11:30 م","12:00 ص","12:30 ص","1:00 ص","1:30 ص","2:00 ص","2:30 ص","3:00 ص","3:30 ص","4:00 ص","4:30 ص","5:00 ص","5:30 ص","6:00 ص","6:30 ص","7:00 ص","7:30 ص","8:00 ص","8:30 ص","9:00 ص","9:30 ص","10:00 ص","10:30 ص","11:00 ص","11:30 ص"];
 const SH={"12:00 م":12,"1:00 م":13,"2:00 م":14,"3:00 م":15,"4:00 م":16,"5:00 م":17,"6:00 م":18,"7:00 م":19,"8:00 م":20,"9:00 م":21,"10:00 م":22,"11:00 م":23,"12:00 ص":0,"1:00 ص":1,"2:00 ص":2,"3:00 ص":3,"4:00 ص":4,"5:00 ص":5,"6:00 ص":6};
 const DAYS=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const MONTHS=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
@@ -475,8 +475,9 @@ function wh(){return data.workHours||{start:"5:00 م",end:"11:00 م"};}
 function slots(){const w=wh();const si=ALL_SLOTS.indexOf(w.start);const ei=ALL_SLOTS.indexOf(w.end);if(si<0||ei<0)return["5:00 م","6:00 م","7:00 م","8:00 م","9:00 م","10:00 م","11:00 م"];return ei>=si?ALL_SLOTS.slice(si,ei+1):[...ALL_SLOTS.slice(si),...ALL_SLOTS.slice(0,ei+1)];}
 function isLate(b){const now=new Date();if(!b.dateKey||b.dateKey!==todayK())return false;const h=SH[b.slot];if(!h)return false;const t=new Date();t.setHours(h,0,0,0);return(now-t)>15*60*1000;}
 function lateMin(b){const h=SH[b.slot];if(!h)return 0;const t=new Date();t.setHours(h,0,0,0);return Math.floor((Date.now()-t)/60000);}
-function getAvgM(){return parseInt(localStorage.getItem('ss_avg_mins')||'30');}
-function waitInfo(id){const b=data.bookings.find(x=>x.id===id);if(!b||b.dateKey!==todayK())return null;const active=data.bookings.filter(x=>!x.cancelled&&x.dateKey===b.dateKey).sort((a,z)=>ALL_SLOTS.indexOf(a.slot)-ALL_SLOTS.indexOf(z.slot));const idx=active.findIndex(x=>x.id===id);if(idx<0)return{before:0,mins:0};return{before:idx,mins:idx*getAvgM()};}
+function getAvgM(){return parseInt(localStorage.getItem('ss_avg_mins')||'60');}
+function getSvcDuration(serviceId){const svc=(data.services||[]).find(s=>s.id===serviceId);return svc&&svc.duration?svc.duration:getAvgM();}
+function waitInfo(id){const b=data.bookings.find(x=>x.id===id);if(!b||b.dateKey!==todayK())return null;const active=data.bookings.filter(x=>!x.cancelled&&x.dateKey===b.dateKey).sort((a,z)=>ALL_SLOTS.indexOf(a.slot)-ALL_SLOTS.indexOf(z.slot));const idx=active.findIndex(x=>x.id===id);if(idx<0)return{before:0,mins:0};const mins=active.slice(0,idx).reduce((sum,x)=>sum+getSvcDuration(x.serviceId),0);return{before:idx,mins};}
 function monthKey(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;}
 function monthLabel(k){const[y,m]=k.split('-');return`${MONTHS[parseInt(m)-1]} ${y}`;}
 
@@ -658,12 +659,23 @@ function renderSettings(){
     <div class="svc-edit-row">
       <div class="svc-edit-top">
         <span class="svc-num">${i+1}</span>
-        <input class="svc-icon-inp" id="si-${s.id}" value="${s.icon||'✂️'}" maxlength="2" title="الإيموجي"/>
         <input class="svc-name-inp" id="sn-${s.id}" value="${s.name}" placeholder="اسم الخدمة..."/>
       </div>
-      <div>
-        <div class="svc-price-lbl">السعر (دينار عراقي)</div>
-        <input class="svc-price-inp" id="sp-${s.id}" type="number" value="${s.price}" min="0" step="500"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+        <div>
+          <div class="svc-price-lbl">السعر (دينار عراقي)</div>
+          <input class="svc-price-inp" id="sp-${s.id}" type="number" value="${s.price}" min="0" step="500"/>
+        </div>
+        <div>
+          <div class="svc-price-lbl">المدة</div>
+          <select class="svc-price-inp" id="sd-${s.id}" style="cursor:pointer">
+            <option value="30" ${(s.duration||60)===30?'selected':''}>30 دقيقة</option>
+            <option value="45" ${(s.duration||60)===45?'selected':''}>45 دقيقة</option>
+            <option value="60" ${(s.duration||60)===60?'selected':''}>ساعة</option>
+            <option value="90" ${(s.duration||60)===90?'selected':''}>ساعة ونص</option>
+            <option value="120" ${(s.duration||60)===120?'selected':''}>ساعتين</option>
+          </select>
+        </div>
       </div>
     </div>
   `).join('');
@@ -681,10 +693,10 @@ async function saveServices(){
   svcs.forEach(s=>{
     const ni=document.getElementById('sn-'+s.id);
     const pi=document.getElementById('sp-'+s.id);
-    const ii=document.getElementById('si-'+s.id);
+    const di=document.getElementById('sd-'+s.id);
     if(ni)s.name=ni.value.trim()||s.name;
     if(pi)s.price=parseInt(pi.value)||s.price;
-    if(ii)s.icon=ii.value||s.icon;
+    if(di)s.duration=parseInt(di.value)||60;
   });
   try{await save();toast('✅ تم حفظ الخدمات');updateManualSvcSelect();}catch{toast('❌ فشل الحفظ');}
 }
