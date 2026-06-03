@@ -525,10 +525,11 @@ async function doBook(){
     try{
       const topic=NTFY_TOPIC;
       if(topic){
-        await fetch(`https://ntfy.sh/${topic}`,{
+        fetch(`https://ntfy.sh/${topic}`,{
           method:'POST',
+          mode:'no-cors',
           headers:{
-            'Title':'🔔 حجز جديد — Sun Shave',
+            'Title':'حجز جديد - Sun Shave',
             'Priority':'high',
             'Tags':'scissors',
             'Content-Type':'text/plain; charset=utf-8'
