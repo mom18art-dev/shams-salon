@@ -509,21 +509,14 @@ async function doBook(){
     await save();
     // إرسال إشعار ntfy
     try{
-      const topic=NTFY_TOPIC;
-      if(topic){
-        fetch(`https://ntfy.sh/${topic}`,{
-          method:'POST',
-          mode:'no-cors',
-          headers:{
-            'Title':'حجز جديد - Sun Shave',
-            'Priority':'high',
-            'Tags':'scissors',
-            'Content-Type':'text/plain; charset=utf-8'
-          },
-          body:`👤 ${name}\n✂️ ${svc.name}\n🕐 ${selSlot}\n📅 ${selDateLabel}\n📞 ${phone}`
-        });
-      }
-    }catch{/* الإشعار اختياري */}
+      const msg=encodeURIComponent(`👤 ${name}\n✂️ ${svc.name}\n🕐 ${selSlot}\n📅 ${selDateLabel}\n📞 ${phone}`);
+      const title=encodeURIComponent('حجز جديد - Sun Shave');
+      fetch(`https://ntfy.sh/${NTFY_TOPIC}?title=${title}&priority=high&tags=scissors`,{
+        method:'POST',
+        mode:'no-cors',
+        body:`👤 ${name}\n✂️ ${svc.name}\n🕐 ${selSlot}\n📅 ${selDateLabel}\n📞 ${phone}`
+      });
+    }catch{}
     document.getElementById('s-name').textContent=name;
     document.getElementById('s-svc').textContent=svc.name;
     document.getElementById('s-date').textContent=selDateLabel;
