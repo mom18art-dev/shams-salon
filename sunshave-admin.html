@@ -522,7 +522,7 @@ async function load(){
   }catch(e){syncBar(false);toast('خطأ في الاتصال');}
 }
 async function save(){
-  await setDoc(DB,{bookings:JSON.stringify(data.bookings||[]),waitlist:JSON.stringify(data.waitlist||[]),disabledDays:JSON.stringify(data.disabledDays||[]),archivedBookings:JSON.stringify(data.archivedBookings||[]),expenses:JSON.stringify(data.expenses||[]),services:JSON.stringify(data.services||[]),workHoursStart:(data.workHours&&data.workHours.start)||"5:00 م",workHoursEnd:(data.workHours&&data.workHours.end)||"11:00 م",ntfyTopic:localStorage.getItem('ss_ntfy_topic')||''});
+  await setDoc(DB,{bookings:JSON.stringify(data.bookings||[]),waitlist:JSON.stringify(data.waitlist||[]),disabledDays:JSON.stringify(data.disabledDays||[]),archivedBookings:JSON.stringify(data.archivedBookings||[]),expenses:JSON.stringify(data.expenses||[]),services:JSON.stringify(data.services||[]),workHoursStart:(data.workHours&&data.workHours.start)||"5:00 م",workHoursEnd:(data.workHours&&data.workHours.end)||"11:00 م"});
   lastSync=new Date();syncBar(true);
 }
 function cleanOld(){
@@ -708,8 +708,7 @@ function renderSettings(){
       </div>
     </div>
   `).join('')+'<button onclick="addSvc()" style="width:100%;padding:10px;margin-top:4px;background:rgba(201,168,76,0.07);border:1px dashed rgba(201,168,76,0.3);border-radius:8px;color:var(--gold);font-family:\'Cairo\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">➕ إضافة خدمة جديدة</button>';
-  setTimeout(loadNtfyInput,50);
-
+  
   const w=wh();const ws=document.getElementById('wStart');const we=document.getElementById('wEnd');ws.innerHTML='';we.innerHTML='';
   ALL_SLOTS.forEach(s=>{const o1=document.createElement('option');o1.value=s;o1.textContent=s;if(s===w.start)o1.selected=true;ws.appendChild(o1);const o2=document.createElement('option');o2.value=s;o2.textContent=s;if(s===w.end)o2.selected=true;we.appendChild(o2);});
   const am=document.getElementById('avgMins');if(am)am.value=localStorage.getItem('ss_avg_mins')||'30';
@@ -840,27 +839,9 @@ window.markDone=markDone;window.saveNote=saveNote;window.sendWait=sendWait;
 window.clearAll=clearAll;window.renderArchive=renderArchive;window.renderAcc=renderAcc;
 window.addExp=addExp;window.delExp=delExp;window.notifyWait=notifyWait;
 // ─── ntfy ───
-const NTFY_TOPIC = 'shams-barber-iq'; // ← غيّر هذا لاسم قناتك في ntfy
-function getNtfyTopic(){return NTFY_TOPIC;}
-function saveNtfy(){}
-async function sendNtfy(title,body){
-  const topic=getNtfyTopic();if(!topic)return;
-  try{
-    fetch(`https://ntfy.sh/${topic}`,{
-      method:'POST',
-      mode:'no-cors',
-      headers:{'Title':title,'Priority':'high','Tags':'scissors','Content-Type':'text/plain; charset=utf-8'},
-      body:body
-    });
-  }catch{}
-}
-async function testNtfy(){
-  await sendNtfy('🔔 Sun Shave — تجريبي','هذا إشعار تجريبي من لوحة التحكم ✅');
-  toast('📲 تم الإرسال! تحقق من تطبيق ntfy');
-}
-function loadNtfyInput(){}
-
-window.saveNtfy=saveNtfy;window.testNtfy=testNtfy;window.sendNtfy=sendNtfy;window.getNtfyTopic=getNtfyTopic;
+const NTFY_TOPIC='sunshave-iq-2847';
+async function sendNtfy(title,body){try{fetch(`https://ntfy.sh/${NTFY_TOPIC}`,{method:'POST',mode:'no-cors',headers:{'Title':title,'Priority':'high','Tags':'scissors','Content-Type':'text/plain; charset=utf-8'},body:body});}catch{}}
+window.sendNtfy=sendNtfy;
 // ─────────────
 
 window.saveHours=saveHours;window.toggleDay=toggleDay;window.changePIN=changePIN;
