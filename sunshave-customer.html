@@ -532,14 +532,6 @@ async function doBook(){
     document.getElementById('s-price').textContent=fmtPrice(svc.price);
     document.getElementById('formView').classList.add('hidden');
     document.getElementById('successView').classList.remove('hidden');
-    // رسالة تأكيد واتساب للزبون
-    try{
-      const confirmMsg=`السلام عليكم ${name} 👋\n\n✅ تم تأكيد حجزك في *Sun Shave*\n\n✂️ ${svc.name}\n📅 ${selDateLabel}\n⏰ ${selSlot}\n💰 ${fmtPrice(svc.price)}\n\n⚠️ التأخر أكثر من 15 دقيقة يلغي حجزك\n\nSun Shave ☀️`;
-      const c=phone.replace(/\D/g,'');const intl=c.startsWith('0')?'964'+c.slice(1):c;
-      setTimeout(()=>window.open(`https://wa.me/${intl}?text=${encodeURIComponent(confirmMsg)}`,'_blank'),1000);
-    }catch{}
-    document.getElementById('formView').classList.add('hidden');
-    document.getElementById('successView').classList.remove('hidden');
   }catch{db.bookings.pop();btn.disabled=false;updateBtn();toast('فشل الحجز، حاول مرة ثانية');}
   busy=false;
 }
