@@ -626,6 +626,10 @@ async function load(){
       if(r.services){
         const loaded=typeof r.services==='string'?JSON.parse(r.services):r.services;
         if(Array.isArray(loaded)&&loaded.length>0){SVCS=loaded;db.services=loaded;}
+        // إضافة صبي تلقائياً إذا ما كانت موجودة في Firebase
+        if(!SVCS.find(s=>s.id===BOYS_SVC_ID)){
+          SVCS.push({id:'svc7',name:'صبي',price:7500,icon:'🧒',duration:15});
+        }
       }
       
     }

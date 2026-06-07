@@ -567,6 +567,10 @@ async function load(){
         workHours:{start:r.workHoursStart||"5:00 م",end:r.workHoursEnd||"11:00 م"},
         services:typeof r.services==='string'?JSON.parse(r.services):(r.services||defaultSvcs)
       };
+      // إضافة svc7 (صبي) تلقائياً إذا ما كانت موجودة في Firebase
+      if(!data.services.find(s=>s.id===BOYS_SVC_ID)){
+        data.services.push({id:'svc7',name:'صبي',price:7500,icon:'🧒',duration:15});
+      }
     }
     cleanOld();lastSync=new Date();syncBar(true);
   }catch(e){syncBar(false);toast('خطأ في الاتصال');}
