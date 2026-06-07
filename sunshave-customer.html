@@ -195,7 +195,7 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);min-he
   <div class="brand-name">SUN SHAVE</div>
   <div class="brand-sub">BARBER SHOP</div>
   <div class="hero-line"></div>
-  <div style="font-family:'Cairo',sans-serif;font-size:13px;color:var(--gold);font-weight:700;margin-bottom:6px;letter-spacing:1px;">✂️ حيدر كاظم</div>
+  <div style="font-family:'Cairo',sans-serif;font-size:13px;color:var(--gold);font-weight:700;margin-bottom:8px;letter-spacing:1px;">✂️ حيدر كاظم</div>
   <div class="work-badge" id="workBadge">احجز موعدك الآن</div>
 </div>
 
@@ -381,44 +381,6 @@ function normPhone(p){const c=p.replace(/\D/g,'');return c.startsWith('964')?'0'
 function validPhone(p){return/^07[3-9]\d{8}$/.test(normPhone(p));}
 function validName(n){return n.trim().length>=3&&/[\u0600-\u06FFa-zA-Z]/.test(n);}
 function slots(){const wh=db.workHours||{start:"5:00 م",end:"11:00 م"};const si=ALL_SLOTS.indexOf(wh.start);const ei=ALL_SLOTS.indexOf(wh.end);if(si<0||ei<0)return["5:00 م","6:00 م","7:00 م","8:00 م","9:00 م","10:00 م","11:00 م"];return ei>=si?ALL_SLOTS.slice(si,ei+1):[...ALL_SLOTS.slice(si),...ALL_SLOTS.slice(0,ei+1)];}
-
-// مدة الخدمة المختارة بالدقائق
-function selSvcDuration(){
-  if(!selSvc)return 30;
-  const svc=(db.services||SVCS).find(s=>s.id===selSvc);
-  return svc&&svc.duration?svc.duration:30;
-}
-
-// الأوقات التي يشغلها حجز معين بناءً على مدته
-function slotsOccupiedBy(startSlot, durationMins){
-  const count=Math.max(1, Math.ceil(durationMins/30));
-  const allS=slots();
-  const si=allS.indexOf(startSlot);
-  if(si<0)return[startSlot];
-  return allS.slice(si, si+count);
-}
-
-// هل وقت معين محجوز (يشمل الأوقات التي تمتد فيها خدمة سابقة)
-function isBooked(dk,s){
-  return db.bookings.some(b=>{
-    if(b.dateKey!==dk||b.cancelled)return false;
-    const dur=(db.services||SVCS).find(sv=>sv.id===b.serviceId)?.duration||30;
-    const occupied=slotsOccupiedBy(b.slot, dur);
-    return occupied.includes(s);
-  });
-}
-
-// هل يوجد عدد كافٍ من الأوقات المتتالية الحرة للخدمة المختارة
-function isSlotAvailableForSvc(dk, startSlot){
-  const dur=selSvcDuration();
-  const count=Math.max(1, Math.ceil(dur/30));
-  const allS=slots();
-  const si=allS.indexOf(startSlot);
-  if(si<0)return false;
-  if(si+count>allS.length)return false; // ما يكفي أوقات
-  const needed=allS.slice(si, si+count);
-  return needed.every(s=>!isBooked(dk,s)&&!isPast(dk,s));
-}
 function slotDateTime(dk,s){
   const h=SLOT_H[s];if(h===undefined)return null;
   const hFloor=Math.floor(h);const mins=h%1!==0?30:0;
@@ -428,13 +390,54 @@ function slotDateTime(dk,s){
   base.setHours(hFloor,mins,0,0);
   return base;
 }
-function isPast(dk,s){
-  const apptTime=slotDateTime(dk,s);
-  if(!apptTime)return false;
-  return new Date()>=apptTime;
+function isPast(dk,s){const t=slotDateTime(dk,s);if(!t)return false;return new Date()>=t;}
+
+// مدة خدمة معينة بالدقائق
+function getSvcDuration(serviceId){
+  const svcs=db.services||SVCS;
+  const svc=svcs.find(s=>s.id===serviceId);
+  return svc&&svc.duration?Number(svc.duration):30;
 }
+// مدة الخدمة المختارة حالياً
+function selDur(){return selSvc?getSvcDuration(selSvc):30;}
+
+// كل الأوقات التي يشغلها حجز (بناءً على مدته)
+function occupiedSlots(b){
+  const dur=getSvcDuration(b.serviceId);
+  const count=Math.max(1,Math.ceil(dur/30));
+  const allS=slots();
+  const si=allS.indexOf(b.slot);
+  if(si<0)return[b.slot];
+  return allS.slice(si,Math.min(si+count,allS.length));
+}
+
+// هل وقت معين محجوز (مع مراعاة مدة الخدمات الأخرى)
+function isBooked(dk,s){
+  return db.bookings.some(b=>{
+    if(b.dateKey!==dk||b.cancelled)return false;
+    return occupiedSlots(b).includes(s);
+  });
+}
+
+// هل يمكن حجز وقت معين للخدمة المختارة (أوقات كافية متتالية)
+function canBook(dk,startSlot){
+  const dur=selDur();
+  const count=Math.max(1,Math.ceil(dur/30));
+  const allS=slots();
+  const si=allS.indexOf(startSlot);
+  if(si<0||si+count>allS.length)return false;
+  const needed=allS.slice(si,si+count);
+  return needed.every(s=>!isBooked(dk,s)&&!isPast(dk,s));
+}
+
 function phoneBooked(p){const np=normPhone(p);return db.bookings.some(b=>!b.cancelled&&normPhone(b.phone||'')===np);}
-function allBooked(dk){const av=slots().filter(s=>!isPast(dk,s));return av.length===0||av.every(s=>isBooked(dk,s));}
+function allBooked(dk){
+  const av=slots().filter(s=>!isPast(dk,s)&&!isBooked(dk,s));
+  if(av.length===0)return true;
+  // لو ما في ولا وقت يكفي للخدمة المختارة
+  if(selSvc)return!av.some(s=>canBook(dk,s));
+  return false;
+}
 
 async function load(){
   try{
@@ -483,14 +486,15 @@ function updateBtn(){
   else btn.textContent='اختار الخدمة واليوم والوقت';
 }
 
+function durLabel(d){return d<=30?'٣٠ د':d===45?'٤٥ د':d===60?'ساعة':d===90?'ساعة ونص':'ساعتين';}
+
 function renderSvcs(){
   const g=document.getElementById('svcGrid');g.innerHTML='';
   SVCS.forEach(s=>{
     const b=document.createElement('button');
     b.className='svc-btn'+(selSvc===s.id?' sel':'');
     const dur=s.duration||30;
-    const durLabel=dur===30?'٣٠ د':dur===45?'٤٥ د':dur===60?'ساعة':dur===90?'ساعة ونص':'ساعتين';
-    b.innerHTML=`<span class="svc-name">${s.name}</span><span class="svc-price">${fmtPrice(s.price)}</span><span style="font-size:9px;color:var(--muted);margin-top:2px;display:block">⏱ ${durLabel}</span>`;
+    b.innerHTML=`<span class="svc-name">${s.name}</span><span class="svc-price">${fmtPrice(s.price)}</span><span style="font-size:9px;color:var(--muted);margin-top:2px;display:block">⏱ ${durLabel(dur)}</span>`;
     b.onclick=()=>{selSvc=s.id;selSlot=null;renderSvcs();renderSlots();updateBtn();};
     g.appendChild(b);
   });
@@ -513,9 +517,9 @@ function renderSlots(){
   const wrap=document.getElementById('slotsWrap');
   if(!selDateKey){wrap.style.display='none';return;}
   wrap.style.display='block';
-  const dur=selSvcDuration();
-  const durLabel=dur===30?'٣٠ د':dur===45?'٤٥ د':dur===60?'ساعة':dur===90?'ساعة ونص':'ساعتين';
-  document.getElementById('slotsLabel').textContent=`الأوقات — ${selDateLabel}${selSvc?' (مدة الخدمة: '+durLabel+')':''}`;
+  const dur=selDur();
+  const lbl=selSvc?` — مدة الخدمة: ${durLabel(dur)}`:'';
+  document.getElementById('slotsLabel').textContent=`الأوقات — ${selDateLabel}${lbl}`;
   const g=document.getElementById('slotsGrid');g.innerHTML='';
   const full=allBooked(selDateKey);
   document.getElementById('allBkdBox').style.display=full?'block':'none';
@@ -523,18 +527,21 @@ function renderSlots(){
   document.getElementById('bookBtnWrap').style.display=full?'none':'block';
   slots().forEach(s=>{
     const past=isPast(selDateKey,s);
-    const available=!past&&isSlotAvailableForSvc(selDateKey,s);
     const bkd=isBooked(selDateKey,s);
+    // وقت فاضي لكن ما يكفي أوقات بعده للخدمة المختارة
+    const notEnough=!past&&!bkd&&selSvc&&!canBook(selDateKey,s);
     const b=document.createElement('button');
-    // مخفي لو مو متاح لكن مو محجوز (يعني ما يكفي أوقات بعده)
-    if(!bkd&&!past&&!available){
-      b.className='slot-btn past';
-      b.textContent=s;
-      b.disabled=true;
+    if(bkd){
+      b.className='slot-btn bkd';b.textContent=s;b.disabled=true;
+    } else if(past){
+      b.className='slot-btn past';b.textContent=s;b.disabled=true;
+    } else if(notEnough){
+      b.className='slot-btn past';b.textContent=s;b.disabled=true;
+      b.title='لا يكفي وقت لهذه الخدمة';
     } else {
-      b.className='slot-btn'+(bkd?' bkd':'')+(past&&!bkd?' past':'')+(selSlot===s?' sel':'');
+      b.className='slot-btn'+(selSlot===s?' sel':'');
       b.textContent=s;
-      if(available)b.onclick=()=>{selSlot=s;renderSlots();updateBtn();};
+      b.onclick=()=>{selSlot=s;renderSlots();updateBtn();};
     }
     g.appendChild(b);
   });
@@ -617,6 +624,15 @@ function resetForm(){
   document.getElementById('nameInp').addEventListener('input',updateBtn);
   document.getElementById('phoneInp').addEventListener('input',updateBtn);
   window.doBook=doBook;window.doWaitlist=doWaitlist;window.resetForm=resetForm;
+  // تحديث تلقائي كل 30 ثانية — يعرض الأوقات المتاحة فوراً بعد الإلغاء
+  setInterval(async()=>{
+    try{
+      await load();
+      renderSvcs();
+      renderDays();
+      if(selDateKey)renderSlots();
+    }catch{}
+  },30000);
 })();
 </script>
 </body>
