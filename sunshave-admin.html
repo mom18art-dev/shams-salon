@@ -278,9 +278,17 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);color:
         <div style="display:flex;flex-direction:column;gap:7px;">
           <input id="mName" class="sinp" placeholder="اسم الزبون..."/>
           <input id="mPhone" class="sinp" placeholder="رقم الهاتف..." type="tel"/>
-          <select id="mSvc" class="sinp" onchange="updateMSlots()"><option value="">اختار الخدمة</option></select>
+          <select id="mSvc" class="sinp" onchange="onMSvcChange()"><option value="">اختار الخدمة</option></select>
           <select id="mDay" class="sinp" onchange="updateMSlots()"><option value="">اختار اليوم</option></select>
           <select id="mSlot" class="sinp"><option value="">اختار الساعة</option></select>
+          <div id="mKidsPicker" style="display:none;margin-top:8px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.2);border-radius:8px;padding:10px;text-align:center;">
+            <span style="font-size:11px;color:var(--gold-dim);font-weight:700;letter-spacing:1px;display:block;margin-bottom:8px;">👦 عدد الأطفال</span>
+            <div style="display:flex;align-items:center;justify-content:center;gap:14px;">
+              <button onclick="chgMKids(-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--gold);background:rgba(201,168,76,0.1);color:var(--gold);font-size:18px;cursor:pointer;">−</button>
+              <span id="mKidsNum" style="font-size:24px;font-weight:900;color:var(--text);min-width:30px;">1</span>
+              <button onclick="chgMKids(1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--gold);background:rgba(201,168,76,0.1);color:var(--gold);font-size:18px;cursor:pointer;">+</button>
+            </div>
+          </div>
           <div style="display:flex;gap:7px;margin-top:3px;">
             <button class="save-btn" style="flex:1" onclick="saveManual()">✅ حفظ</button>
             <button class="save-btn" style="flex:1;background:var(--card2);border:1px solid var(--border2);color:var(--muted);" onclick="hideManual()">إلغاء</button>
@@ -477,7 +485,7 @@ let data={bookings:[],waitlist:[],disabledDays:[],archivedBookings:[],expenses:[
   {id:'svc1',name:'حلاقة كاملة',price:20000,icon:'✂️'},
   {id:'svc2',name:'تحديد ولحية',price:10000,icon:'🪒'},
   {id:'svc3',name:'شسوار',price:5000,icon:'💧'},
-  {id:'svc4',name:'طفل',price:10000,icon:'👦'},
+  {id:'svc4',name:'طفل',price:10000,icon:'👦',duration:15,isKids:true},
   {id:'svc5',name:'تنظيف بشرة عميق',price:15000,icon:'🧴'},
   {id:'svc6',name:'تنظيف بشرة عادي',price:8000,icon:'🫧'}
 ]};
@@ -543,7 +551,7 @@ async function load(){
         {id:'svc1',name:'حلاقة كاملة',price:20000,icon:'✂️'},
         {id:'svc2',name:'تحديد ولحية',price:10000,icon:'🪒'},
         {id:'svc3',name:'شسوار',price:5000,icon:'💧'},
-        {id:'svc4',name:'طفل',price:10000,icon:'👦'},
+        {id:'svc4',name:'طفل',price:10000,icon:'👦',duration:15,isKids:true},
         {id:'svc5',name:'تنظيف بشرة عميق',price:15000,icon:'🧴'},
         {id:'svc6',name:'تنظيف بشرة عادي',price:8000,icon:'🫧'}
       ];
@@ -612,7 +620,7 @@ function renderBookings(){
       <div class="ctop">
         <div style="flex:1;min-width:0">
           <div class="date-tag">📅 ${b.dateLabel||b.day||b.dateKey}</div>
-          <div><span class="c-name">${b.name}</span>${b.reminded?'<span class="tag t-ok">✓ ذُكِّر</span>':''}${b.manual?'<span class="tag t-manual">📞 يدوي</span>':''}${late?`<span class="tag t-late">⚠️ ${mins}د</span>`:''}</div>
+          <div><span class="c-name">${b.name}</span>${b.reminded?'<span class="tag t-ok">✓ ذُكِّر</span>':''}${b.manual?'<span class="tag t-manual">📞 يدوي</span>':''}${b.kidsCount?`<span class="tag t-manual">👦×${b.kidsCount}</span>`:''}${late?`<span class="tag t-late">⚠️ ${mins}د</span>`:''}</div>
           <div style="margin-top:4px;font-size:12px;color:var(--muted)">${b.service} — ${fp(b.price||0)}</div>
         </div>
         <div class="time-chip" style="margin-right:8px">⏰ ${b.slot}</div>
@@ -737,8 +745,9 @@ function renderSettings(){
           <input class="svc-price-inp" id="sp-${s.id}" type="number" value="${s.price}" min="0" step="500"/>
         </div>
         <div>
-          <div class="svc-price-lbl">المدة</div>
+          <div class="svc-price-lbl">المدة (لكل طفل إذا أطفال)</div>
           <select class="svc-price-inp" id="sd-${s.id}" style="cursor:pointer">
+            <option value="15" ${(s.duration||60)===15?'selected':''}>15 دقيقة</option>
             <option value="30" ${(s.duration||60)===30?'selected':''}>30 دقيقة</option>
             <option value="45" ${(s.duration||60)===45?'selected':''}>45 دقيقة</option>
             <option value="60" ${(s.duration||60)===60?'selected':''}>ساعة</option>
@@ -747,6 +756,7 @@ function renderSettings(){
           </select>
         </div>
       </div>
+
     </div>
   `).join('')+'<button onclick="addSvc()" style="width:100%;padding:10px;margin-top:4px;background:rgba(201,168,76,0.07);border:1px dashed rgba(201,168,76,0.3);border-radius:8px;color:var(--gold);font-family:\'Cairo\',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">➕ إضافة خدمة جديدة</button>';
   
@@ -759,7 +769,7 @@ function renderSettings(){
 
 function addSvc(){
   const newId='svc'+Date.now();
-  data.services.push({id:newId,name:'خدمة جديدة',price:10000,icon:'✂️',duration:60});
+  data.services.push({id:newId,name:'خدمة جديدة',price:10000,icon:'✂️',duration:60,isKids:false});
   renderSettings();toast('➕ تمت الإضافة — عدّل الاسم والسعر ثم احفظ');
 }
 function delSvc(id){
@@ -773,17 +783,25 @@ async function saveServices(){
     const ni=document.getElementById('sn-'+s.id);
     const pi=document.getElementById('sp-'+s.id);
     const di=document.getElementById('sd-'+s.id);
+    const ki=document.getElementById('sk-'+s.id);
     if(ni)s.name=ni.value.trim()||s.name;
     if(pi)s.price=parseInt(pi.value)||s.price;
     if(di)s.duration=parseInt(di.value)||60;
+    if(ki)s.isKids=ki.checked;
   });
   try{await save();toast('✅ تم حفظ الخدمات');updateManualSvcSelect();}catch{toast('❌ فشل الحفظ');}
 }
 
+let mKidsCount=1;
 function updateManualSvcSelect(){
   const sel=document.getElementById('mSvc');if(!sel)return;
   const svcs=data.services||[];
-  sel.innerHTML='<option value="">اختار الخدمة</option>'+svcs.map(s=>`<option value="${s.name}" data-p="${s.price}" data-id="${s.id}">${s.name} — ${Number(s.price).toLocaleString()} د.ع</option>`).join('');
+  sel.innerHTML='<option value="">اختار الخدمة</option>'+svcs.map(s=>`<option value="${s.name}" data-p="${s.price}" data-id="${s.id}" data-kids="${s.isKids?'1':''}">${s.name} — ${Number(s.price).toLocaleString()} د.ع${s.isKids?' 👦':''}</option>`).join('');
+}
+function chgMKids(d){
+  mKidsCount=Math.max(1,Math.min(10,mKidsCount+d));
+  document.getElementById('mKidsNum').textContent=mKidsCount;
+  updateMSlots();
 }
 async function saveHours(){const ws=document.getElementById('wStart');const we=document.getElementById('wEnd');const st=ws.options[ws.selectedIndex].value;const en=we.options[we.selectedIndex].value;data.workHours={start:st,end:en};const am=document.getElementById('avgMins');if(am)localStorage.setItem('ss_avg_mins',am.value);try{await save();toast('✅ تم حفظ الإعدادات');}catch{toast('❌ فشل');}}
 async function toggleDay(key){if(!data.disabledDays)data.disabledDays=[];const was=data.disabledDays.includes(key);if(was)data.disabledDays=data.disabledDays.filter(d=>d!==key);else data.disabledDays.push(key);try{await save();toast(was?'✅ تم تفعيل اليوم':'🚫 تم تعطيل اليوم');renderSettings();}catch{if(was)data.disabledDays.push(key);else data.disabledDays=data.disabledDays.filter(d=>d!==key);}}
@@ -803,6 +821,14 @@ function showManual(){
   next7().forEach(d=>{const key=dk(d);const label=dl(d);const opt=document.createElement('option');opt.value=key;opt.textContent=label;opt.dataset.label=label;ds.appendChild(opt);});
   document.getElementById('mSlot').innerHTML='<option value="">اختار اليوم أولاً</option>';
 }
+function onMSvcChange(){
+  const se=document.getElementById('mSvc');
+  const isKids=se.options[se.selectedIndex]?.dataset?.kids==='1';
+  const kp=document.getElementById('mKidsPicker');
+  if(kp){kp.style.display=isKids?'block':'none';}
+  mKidsCount=1;if(document.getElementById('mKidsNum'))document.getElementById('mKidsNum').textContent='1';
+  updateMSlots();
+}
 function hideManual(){document.getElementById('manualForm').style.display='none';['mName','mPhone'].forEach(id=>document.getElementById(id).value='');document.getElementById('mSvc').value='';document.getElementById('mDay').value='';}
 function slotsOccupiedByBooking(b){
   const svcs=data.services||[];
@@ -816,13 +842,14 @@ function slotsOccupiedByBooking(b){
 }
 
 // هل يتداخل حجز جديد مع حجوزات قائمة (مع مراعاة مدة كل خدمة)
-function isSlotConflict(dateKey,startSlot,serviceId,excludeId){
+function isSlotConflict(dateKey,startSlot,serviceId,excludeId,kidsN){
   const allS=slots();
   const si=allS.indexOf(startSlot);
   if(si<0)return true;
   const svcs=data.services||[];
   const svc=svcs.find(s=>s.id===serviceId||s.name===serviceId);
-  const dur=svc&&svc.duration?svc.duration:30;
+  let dur=svc&&svc.duration?svc.duration:30;
+  if(svc&&svc.isKids&&kidsN)dur=svc.duration*(kidsN||1);
   const count=Math.max(1,Math.ceil(dur/30));
   const newEnd=si+count;
   return data.bookings.some(b=>{
@@ -848,7 +875,7 @@ function updateMSlots(){
   workSlots.forEach(s=>{
     // إذا محددة خدمة: تحقق تداخل كامل بمدتها، وإلا تحقق الوقت فاضي بس
     const conflict=svcId
-      ?isSlotConflict(dateKey,s,svcId,null)
+      ?isSlotConflict(dateKey,s,svcId,null,mKidsCount)
       :data.bookings.some(b=>b.dateKey===dateKey&&!b.cancelled&&slotsOccupiedByBooking(b).includes(s));
     const opt=document.createElement('option');
     opt.value=s;
@@ -859,12 +886,16 @@ function updateMSlots(){
 }
 async function saveManual(){
   const name=document.getElementById('mName').value.trim();const phone=document.getElementById('mPhone').value.trim()||'هاتف';
-  const se=document.getElementById('mSvc');const svc=se.value;const price=se.options[se.selectedIndex]?.dataset?.p||0;
+  const se=document.getElementById('mSvc');const baseSvcName=se.value;const basePrice=Number(se.options[se.selectedIndex]?.dataset?.p||0);
   const de=document.getElementById('mDay');const dateKey=de.value;const dateLabel=de.options[de.selectedIndex]?.dataset?.label||'';
   const slot=document.getElementById('mSlot').value;
-  if(!name){toast('أدخل الاسم');return;}if(!svc){toast('اختار الخدمة');return;}if(!dateKey){toast('اختار اليوم');return;}if(!slot){toast('اختار الساعة');return;}
+  if(!baseSvcName){toast('اختار الخدمة');return;}if(!name){toast('أدخل الاسم');return;}if(!dateKey){toast('اختار اليوم');return;}if(!slot){toast('اختار الساعة');return;}
   const svcId=se.options[se.selectedIndex]?.dataset?.id||'';
-  const b={id:'ss'+Date.now(),name,phone,service:svc,serviceId:svcId,price:Number(price),dateKey,dateLabel,slot,day:dateLabel,createdAt:Date.now(),bookedAt:new Date().toLocaleTimeString('ar-IQ'),reminded:true,cancelled:false,manual:true,note:''};
+  const isKidsOpt=se.options[se.selectedIndex]?.dataset?.kids==='1';
+  const finalSvcName=isKidsOpt?`${baseSvcName} (${mKidsCount} أطفال)`:baseSvcName;
+  const finalPrice=isKidsOpt?basePrice*mKidsCount:basePrice;
+  const kidsCount=isKidsOpt?mKidsCount:null;
+  const b={id:'ss'+Date.now(),name,phone,service:finalSvcName,serviceId:svcId,price:finalPrice,kidsCount,dateKey,dateLabel,slot,day:dateLabel,createdAt:Date.now(),bookedAt:new Date().toLocaleTimeString('ar-IQ'),reminded:true,cancelled:false,manual:true,note:''};
   data.bookings.push(b);try{await save();hideManual();render();toast(`✅ حُجز ${name}`);}catch{data.bookings.pop();toast('❌ فشل');}
 }
 
@@ -914,7 +945,7 @@ window._init=init;
 
 // expose to inline onclick
 window.switchTab=switchTab;window.sstab=sstab;window.loadAndRender=loadAndRender;
-window.remind=remind;window.cancelB=cancelB;window.cancelLate=cancelLate;
+window.remind=remind;window.cancelB=cancelB;window.cancelLate=cancelLate;window.chgMKids=chgMKids;window.onMSvcChange=onMSvcChange;
 window.markDone=markDone;window.saveNote=saveNote;window.sendWait=sendWait;
 window.clearAll=clearAll;window.renderArchive=renderArchive;window.renderAcc=renderAcc;
 window.addExp=addExp;window.delExp=delExp;window.notifyWait=notifyWait;

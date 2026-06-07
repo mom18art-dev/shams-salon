@@ -83,6 +83,13 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);min-he
 
 /* SERVICES */
 .svc-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.kids-picker{display:none;margin-top:12px;background:rgba(201,168,76,0.06);border:1px solid rgba(201,168,76,0.25);border-radius:10px;padding:12px 14px;text-align:center;}
+.kids-picker .kp-label{font-size:11px;color:var(--gold-dim);font-weight:700;letter-spacing:2px;margin-bottom:10px;display:block;}
+.kids-picker .kp-row{display:flex;align-items:center;justify-content:center;gap:14px;}
+.kp-btn{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--gold);background:rgba(201,168,76,0.08);color:var(--gold);font-size:20px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;transition:.15s;}
+.kp-btn:hover{background:rgba(201,168,76,0.18);}
+.kp-num{font-size:28px;font-weight:900;color:var(--text);min-width:36px;}
+.kp-info{font-size:11px;color:var(--muted);margin-top:8px;}
 .svc-btn{
   background:#0F0F08;border:1px solid var(--border2);border-radius:10px;
   padding:16px 12px;cursor:pointer;text-align:center;
@@ -221,6 +228,15 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);min-he
     <div class="sec" style="margin-top:0">
       <div class="sec-label">الخدمة</div>
       <div class="svc-grid" id="svcGrid"></div>
+      <div class="kids-picker" id="kidsPicker">
+        <span class="kp-label">👦 عدد الأطفال</span>
+        <div class="kp-row">
+          <button class="kp-btn" onclick="changeKids(-1)">−</button>
+          <span class="kp-num" id="kidsNum">1</span>
+          <button class="kp-btn" onclick="changeKids(1)">+</button>
+        </div>
+        <div class="kp-info" id="kidsInfo">مدة: 15 دقيقة • السعر: 10,000 د.ع</div>
+      </div>
     </div>
 
     <div class="divider"></div>
@@ -364,14 +380,14 @@ const DEFAULT_SVCS = [
   {id:'svc1', name:'حلاقة كاملة', price:20000, icon:'✂️'},
   {id:'svc2',name:'تحديد ولحية', price:10000, icon:'🪒'},
   {id:'svc3',name:'شسوار',        price:5000,  icon:'💧'},
-  {id:'svc4',name:'طفل',          price:10000, icon:'👦'},
+  {id:'svc4',name:'طفل',          price:10000, icon:'👦', duration:15, isKids:true},
   {id:'svc5',name:'تنظيف بشرة عميق', price:15000, icon:'🧴'},
   {id:'svc6',name:'تنظيف بشرة عادي', price:8000, icon:'🫧'},
 ];
 let SVCS = [...DEFAULT_SVCS];
 
 let db={bookings:[],waitlist:[],disabledDays:[],workHours:{start:"4:00 م",end:"11:00 م"}};
-let selSvc=null,selDateKey=null,selDateLabel=null,selSlot=null,busy=false;
+let selSvc=null,selDateKey=null,selDateLabel=null,selSlot=null,busy=false,selKidsCount=1;
 
 function dateKey(d){return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
 function dateLabel(d){return`${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;}
@@ -394,16 +410,46 @@ function isPast(dk,s){const t=slotDateTime(dk,s);if(!t)return false;return new D
 
 // مدة خدمة معينة بالدقائق
 function getSvcDuration(serviceId){
-  const svcs=db.services||SVCS;
+  const svcs=SVCS;
   const svc=svcs.find(s=>s.id===serviceId);
   return svc&&svc.duration?Number(svc.duration):30;
 }
 // مدة الخدمة المختارة حالياً
-function selDur(){return selSvc?getSvcDuration(selSvc):30;}
+function isKidsSvc(id){
+  const svcs=SVCS;
+  const svc=svcs.find(s=>s.id===id);
+  return svc&&svc.isKids===true;
+}
+function selDur(){
+  if(!selSvc)return 30;
+  if(isKidsSvc(selSvc))return selKidsCount*15;
+  return getSvcDuration(selSvc);
+}
+function selPrice(){
+  if(!selSvc)return 0;
+  const svcs=SVCS;
+  const svc=svcs.find(s=>s.id===selSvc);
+  if(!svc)return 0;
+  if(svc.isKids)return svc.price*selKidsCount;
+  return svc.price;
+}
+function changeKids(delta){
+  selKidsCount=Math.max(1,Math.min(10,selKidsCount+delta));
+  document.getElementById('kidsNum').textContent=selKidsCount;
+  const svcs=SVCS;
+  const svc=svcs.find(s=>s.id===selSvc);
+  const dur=selKidsCount*15;
+  const price=(svc?svc.price:10000)*selKidsCount;
+  document.getElementById('kidsInfo').textContent=`مدة: ${dur<60?dur+' دقيقة':dur===60?'ساعة':dur===90?'ساعة ونص':'ساعتين'} • السعر: ${price.toLocaleString()} د.ع`;
+  selSlot=null;renderSlots();updateBtn();
+}
 
 // كل الأوقات التي يشغلها حجز (بناءً على مدته)
 function occupiedSlots(b){
-  const dur=getSvcDuration(b.serviceId);
+  const svcs=SVCS;
+  const svc=svcs.find(s=>s.id===b.serviceId);
+  let dur=getSvcDuration(b.serviceId);
+  if(svc&&svc.isKids&&b.kidsCount)dur=svc.duration*b.kidsCount;
   const count=Math.max(1,Math.ceil(dur/30));
   const allS=slots();
   const si=allS.indexOf(b.slot);
@@ -438,7 +484,10 @@ function canBook(dk,startSlot){
     if(b.dateKey!==dk||b.cancelled)return false;
     const bi=allS.indexOf(b.slot);
     if(bi<0)return false;
-    const bdur=getSvcDuration(b.serviceId);
+    const bsvcs=SVCS;
+    const bsvc=bsvcs.find(s=>s.id===b.serviceId);
+    let bdur=getSvcDuration(b.serviceId);
+    if(bsvc&&bsvc.isKids&&b.kidsCount)bdur=bsvc.duration*b.kidsCount;
     const bcount=Math.max(1,Math.ceil(bdur/30));
     const bEnd=bi+bcount;
     // تداخل: نطاق الجديد يتقاطع مع نطاق القائم
@@ -499,7 +548,7 @@ function updateBtn(){
   const btn=document.getElementById('bookBtn');
   const ok=name&&phone&&validName(name)&&validPhone(phone)&&selSvc&&selDateKey&&selSlot;
   btn.disabled=!ok;
-  if(ok){const s=SVCS.find(x=>x.id===selSvc);btn.textContent=`احجز — ${selSlot} • ${fmtPrice(s?s.price:0)}`;}
+  if(ok){btn.textContent=`احجز — ${selSlot} • ${fmtPrice(selPrice())}`;}
   else btn.textContent='اختار الخدمة واليوم والوقت';
 }
 
@@ -507,12 +556,23 @@ function durLabel(d){return d<=30?'٣٠ د':d===45?'٤٥ د':d===60?'ساعة':d
 
 function renderSvcs(){
   const g=document.getElementById('svcGrid');g.innerHTML='';
-  SVCS.forEach(s=>{
+  const svcs=SVCS;
+  svcs.forEach(s=>{
     const b=document.createElement('button');
     b.className='svc-btn'+(selSvc===s.id?' sel':'');
-    const dur=s.duration||30;
-    b.innerHTML=`<span class="svc-name">${s.name}</span><span class="svc-price">${fmtPrice(s.price)}</span><span style="font-size:9px;color:var(--muted);margin-top:2px;display:block">⏱ ${durLabel(dur)}</span>`;
-    b.onclick=()=>{selSvc=s.id;selSlot=null;renderSvcs();renderSlots();updateBtn();};
+    const dur=s.isKids?(selKidsCount*15):(s.duration||30);
+    const price=s.isKids?(s.price*selKidsCount):s.price;
+    b.innerHTML=`<span class="svc-name">${s.name}</span><span class="svc-price">${fmtPrice(price)}</span><span style="font-size:9px;color:var(--muted);margin-top:2px;display:block">⏱ ${durLabel(dur)}</span>`;
+    b.onclick=()=>{
+      selSvc=s.id;selSlot=null;selKidsCount=1;
+      const kp=document.getElementById('kidsPicker');
+      if(s.isKids){
+        kp.style.display='block';
+        document.getElementById('kidsNum').textContent='1';
+        document.getElementById('kidsInfo').textContent=`مدة: 15 دقيقة • السعر: ${s.price.toLocaleString()} د.ع`;
+      } else {kp.style.display='none';}
+      renderSvcs();renderSlots();updateBtn();
+    };
     g.appendChild(b);
   });
 }
@@ -577,18 +637,22 @@ async function doBook(){
   await load();
   if(isBooked(selDateKey,selSlot)){toast('هذا الوقت انحجز للتو!');renderSlots();btn.disabled=false;updateBtn();busy=false;return;}
   if(phoneBooked(phone)){toast('هذا الرقم عنده حجز مسبق!');btn.disabled=false;updateBtn();busy=false;return;}
-  const svc=SVCS.find(x=>x.id===selSvc);
-  const b={id:'ss'+Date.now(),name,phone,service:svc.name,serviceId:svc.id,price:svc.price,dateKey:selDateKey,dateLabel:selDateLabel,slot:selSlot,day:selDateLabel,createdAt:Date.now(),bookedAt:new Date().toLocaleTimeString('ar-IQ'),reminded:false,cancelled:false,note:''};
+  const svcs=SVCS;
+  const svc=svcs.find(x=>x.id===selSvc);
+  const kidsCount=svc.isKids?selKidsCount:null;
+  const finalPrice=svc.isKids?svc.price*selKidsCount:svc.price;
+  const svcName=svc.isKids?`${svc.name} (${selKidsCount} أطفال)`:svc.name;
+  const b={id:'ss'+Date.now(),name,phone,service:svcName,serviceId:svc.id,price:finalPrice,kidsCount,dateKey:selDateKey,dateLabel:selDateLabel,slot:selSlot,day:selDateLabel,createdAt:Date.now(),bookedAt:new Date().toLocaleTimeString('ar-IQ'),reminded:false,cancelled:false,note:''};
   db.bookings.push(b);
   try{
     await save();
 
     document.getElementById('s-name').textContent=name;
-    document.getElementById('s-svc').textContent=svc.name;
+    document.getElementById('s-svc').textContent=svcName;
     document.getElementById('s-date').textContent=selDateLabel;
     document.getElementById('s-slot').textContent=selSlot;
     document.getElementById('s-phone').textContent=phone;
-    document.getElementById('s-price').textContent=fmtPrice(svc.price);
+    document.getElementById('s-price').textContent=fmtPrice(finalPrice);
     document.getElementById('formView').classList.add('hidden');
     document.getElementById('successView').classList.remove('hidden');
   }catch{db.bookings.pop();btn.disabled=false;updateBtn();toast('فشل الحجز، حاول مرة ثانية');}
@@ -611,7 +675,7 @@ async function doWaitlist(){
 }
 
 function resetForm(){
-  selSvc=null;selDateKey=null;selDateLabel=null;selSlot=null;
+  selSvc=null;selDateKey=null;selDateLabel=null;selSlot=null;selKidsCount=1;document.getElementById('kidsPicker').style.display='none';
   document.getElementById('nameInp').value='';
   document.getElementById('phoneInp').value='';
   document.getElementById('successView').classList.add('hidden');
@@ -631,7 +695,7 @@ function resetForm(){
   renderSvcs();renderDays();
   document.getElementById('nameInp').addEventListener('input',updateBtn);
   document.getElementById('phoneInp').addEventListener('input',updateBtn);
-  window.doBook=doBook;window.doWaitlist=doWaitlist;window.resetForm=resetForm;
+  window.doBook=doBook;window.doWaitlist=doWaitlist;window.resetForm=resetForm;window.changeKids=changeKids;
   // تحديث تلقائي كل 30 ثانية — يعرض الأوقات المتاحة فوراً بعد الإلغاء
   setInterval(async()=>{
     try{
