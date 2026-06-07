@@ -419,6 +419,7 @@ function isSlotAvailableForSvc(dk, startSlot){
   const needed=allS.slice(si, si+count);
   return needed.every(s=>!isBooked(dk,s)&&!isPast(dk,s));
 }
+function slotDateTime(dk,s){
   const h=SLOT_H[s];if(h===undefined)return null;
   const hFloor=Math.floor(h);const mins=h%1!==0?30:0;
   const isMidnight=s&&s.includes('ص')&&h<12;
