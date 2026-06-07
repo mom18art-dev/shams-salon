@@ -396,31 +396,35 @@ let SVCS = [...DEFAULT_SVCS];
 let db={bookings:[],waitlist:[],disabledDays:[],workHours:{start:"4:00 م",end:"11:00 م"}};
 let selSvc=null,selDateKey=null,selDateLabel=null,selSlot=null,busy=false;
 let kidsCount=0,kidsSelectedTemp=0;
+let kidsOverridePrice=0; // السعر الكلي المحسوب (عدد × سعر الوحدة)
+let kidsOverrideDuration=0; // المدة الكلية المحسوبة
 
 // سعر ومدة طفل واحد
 const KIDS_SVC_ID='svc4';
-const KIDS_PRICE_PER=10000; // سعر طفل واحد
-const KIDS_DUR_PER=15;      // دقيقة لكل طفل
+const KIDS_DUR_PER=15; // دقيقة لكل طفل
+function kidsUnitPrice(){const svc=SVCS.find(s=>s.id===KIDS_SVC_ID);return svc?Number(svc.price):10000;}
 
 function openKidsModal(){
+  const unitPrice=kidsUnitPrice();
   kidsSelectedTemp=kidsCount||0;
   const g=document.getElementById('kidsGrid');
   g.innerHTML='';
   for(let i=1;i<=10;i++){
     const b=document.createElement('button');
+    b.type='button';
     b.className='kids-btn'+(kidsSelectedTemp===i?' sel':'');
     b.textContent=i;
     b.onclick=()=>{
       kidsSelectedTemp=i;
       g.querySelectorAll('.kids-btn').forEach((x,idx)=>x.classList.toggle('sel',idx+1===i));
       document.getElementById('kidsConfirmBtn').disabled=false;
-      document.getElementById('kidsConfirmBtn').textContent=`تأكيد — ${i} طفل${i>1?' ('+fmtPrice(i*KIDS_PRICE_PER)+')':''}`;
+      document.getElementById('kidsConfirmBtn').textContent=`تأكيد — ${i} طفل${i>1?' ('+fmtPrice(i*unitPrice)+')':''}`;
     };
     g.appendChild(b);
   }
   document.getElementById('kidsConfirmBtn').disabled=kidsSelectedTemp===0;
   if(kidsSelectedTemp>0){
-    document.getElementById('kidsConfirmBtn').textContent=`تأكيد — ${kidsSelectedTemp} طفل${kidsSelectedTemp>1?' ('+fmtPrice(kidsSelectedTemp*KIDS_PRICE_PER)+')':''}`;
+    document.getElementById('kidsConfirmBtn').textContent=`تأكيد — ${kidsSelectedTemp} طفل${kidsSelectedTemp>1?' ('+fmtPrice(kidsSelectedTemp*unitPrice)+')':''}`;
   } else {
     document.getElementById('kidsConfirmBtn').textContent='تأكيد';
   }
@@ -429,19 +433,16 @@ function openKidsModal(){
 
 function closeKidsModal(){
   document.getElementById('kidsOverlay').style.display='none';
-  if(!kidsCount){selSvc=null;renderSvcs();}
+  if(!kidsCount){selSvc=null;kidsOverridePrice=0;kidsOverrideDuration=0;renderSvcs();}
 }
 
 function confirmKids(){
   if(!kidsSelectedTemp)return;
   kidsCount=kidsSelectedTemp;
-  // نعدّل الخدمة مؤقتاً في الذاكرة حسب عدد الأطفال
-  const kidsSvc=SVCS.find(s=>s.id===KIDS_SVC_ID);
-  if(kidsSvc){
-    kidsSvc.price=kidsCount*KIDS_PRICE_PER;
-    kidsSvc.duration=kidsCount*KIDS_DUR_PER;
-    kidsSvc._kidsCount=kidsCount;
-  }
+  const unitPrice=kidsUnitPrice();
+  // نخزن السعر والمدة بمتغيرات منفصلة — ما نعدل SVCS
+  kidsOverridePrice=kidsCount*unitPrice;
+  kidsOverrideDuration=kidsCount*KIDS_DUR_PER;
   selSvc=KIDS_SVC_ID;
   document.getElementById('kidsOverlay').style.display='none';
   selSlot=null;
@@ -482,7 +483,10 @@ function getBookingDuration(b){
   return getSvcDuration(b.serviceId);
 }
 // مدة الخدمة المختارة حالياً
-function selDur(){return selSvc?getSvcDuration(selSvc):30;}
+function selDur(){
+  if(selSvc===KIDS_SVC_ID&&kidsOverrideDuration)return kidsOverrideDuration;
+  return selSvc?getSvcDuration(selSvc):30;
+}
 
 // كل الأوقات التي يشغلها حجز (بناءً على مدته)
 function occupiedSlots(b){
@@ -585,13 +589,14 @@ function updateBtn(){
   btn.disabled=!ok;
   if(ok){
     const s=SVCS.find(x=>x.id===selSvc);
+    const displayPrice=selSvc===KIDS_SVC_ID&&kidsOverridePrice?kidsOverridePrice:(s?s.price:0);
     const kidsInfo=selSvc===KIDS_SVC_ID&&kidsCount?` • ${kidsCount} طفل`:'';
-    btn.textContent=`احجز — ${selSlot}${kidsInfo} • ${fmtPrice(s?s.price:0)}`;
+    btn.textContent=`احجز — ${selSlot}${kidsInfo} • ${fmtPrice(displayPrice)}`;
   }
   else btn.textContent='اختار الخدمة واليوم والوقت';
 }
 
-function durLabel(d){return d<=30?'٣٠ د':d===45?'٤٥ د':d===60?'ساعة':d===90?'ساعة ونص':'ساعتين';}
+function durLabel(d){return d<=15?'١٥ د':d<=30?'٣٠ د':d===45?'٤٥ د':d===60?'ساعة':d===90?'ساعة ونص':'ساعتين';}
 
 function renderSvcs(){
   const g=document.getElementById('svcGrid');g.innerHTML='';
@@ -600,8 +605,10 @@ function renderSvcs(){
     b.className='svc-btn'+(selSvc===s.id?' sel':'');
     const dur=s.duration||30;
     const isKids=s.id===KIDS_SVC_ID;
-    const kidsLabel=isKids&&s._kidsCount?`<span style="font-size:10px;color:var(--gold);margin-top:2px;display:block">👦 ${s._kidsCount} طفل</span>`:'';
-    b.innerHTML=`<span class="svc-name">${s.name}</span><span class="svc-price">${fmtPrice(s.price)}</span>${kidsLabel}<span style="font-size:9px;color:var(--muted);margin-top:2px;display:block">⏱ ${durLabel(dur)}</span>`;
+    const displayPrice=isKids&&kidsOverridePrice?kidsOverridePrice:s.price;
+    const displayDur=isKids&&kidsOverrideDuration?kidsOverrideDuration:(s.duration||30);
+    const kidsLabel=isKids&&kidsCount?`<span style="font-size:10px;color:var(--gold);margin-top:2px;display:block">👦 ${kidsCount} طفل</span>`:'';
+    b.innerHTML=`<span class="svc-name">${s.name}</span><span class="svc-price">${fmtPrice(displayPrice)}</span>${kidsLabel}<span style="font-size:9px;color:var(--muted);margin-top:2px;display:block">⏱ ${durLabel(displayDur)}</span>`;
     b.onclick=()=>{
       if(isKids){
         openKidsModal();
@@ -675,7 +682,8 @@ async function doBook(){
   if(isBooked(selDateKey,selSlot)){toast('هذا الوقت انحجز للتو!');renderSlots();btn.disabled=false;updateBtn();busy=false;return;}
   if(phoneBooked(phone)){toast('هذا الرقم عنده حجز مسبق!');btn.disabled=false;updateBtn();busy=false;return;}
   const svc=SVCS.find(x=>x.id===selSvc);
-  const b={id:'ss'+Date.now(),name,phone,service:svc.name+(selSvc===KIDS_SVC_ID&&kidsCount?` (${kidsCount} طفل)`:''),serviceId:svc.id,price:svc.price,kidsCount:selSvc===KIDS_SVC_ID?kidsCount:0,dateKey:selDateKey,dateLabel:selDateLabel,slot:selSlot,day:selDateLabel,createdAt:Date.now(),bookedAt:new Date().toLocaleTimeString('ar-IQ'),reminded:false,cancelled:false,note:''};
+  const finalPrice=selSvc===KIDS_SVC_ID&&kidsOverridePrice?kidsOverridePrice:(svc?svc.price:0);
+  const b={id:'ss'+Date.now(),name,phone,service:svc.name+(selSvc===KIDS_SVC_ID&&kidsCount?` (${kidsCount} طفل)`:''),serviceId:svc.id,price:finalPrice,kidsCount:selSvc===KIDS_SVC_ID?kidsCount:0,kidsDuration:selSvc===KIDS_SVC_ID?kidsOverrideDuration:0,dateKey:selDateKey,dateLabel:selDateLabel,slot:selSlot,day:selDateLabel,createdAt:Date.now(),bookedAt:new Date().toLocaleTimeString('ar-IQ'),reminded:false,cancelled:false,note:''};
   db.bookings.push(b);
   try{
     await save();
@@ -708,10 +716,7 @@ async function doWaitlist(){
 }
 
 function resetForm(){
-  selSvc=null;selDateKey=null;selDateLabel=null;selSlot=null;kidsCount=0;
-  // صفّر خدمة الطفل لقيمها الأصلية
-  const kidsSvc=SVCS.find(s=>s.id===KIDS_SVC_ID);
-  if(kidsSvc){kidsSvc.price=KIDS_PRICE_PER;kidsSvc.duration=KIDS_DUR_PER;delete kidsSvc._kidsCount;}
+  selSvc=null;selDateKey=null;selDateLabel=null;selSlot=null;kidsCount=0;kidsOverridePrice=0;kidsOverrideDuration=0;
   document.getElementById('nameInp').value='';
   document.getElementById('phoneInp').value='';
   document.getElementById('successView').classList.add('hidden');
