@@ -382,7 +382,7 @@ const ALL_SLOTS = ["12:00 م","12:30 م","1:00 م","1:30 م","2:00 م","2:30 م"
 const SLOT_H = {"12:00 م":12,"12:30 م":12.5,"1:00 م":13,"1:30 م":13.5,"2:00 م":14,"2:30 م":14.5,"3:00 م":15,"3:30 م":15.5,"4:00 م":16,"4:30 م":16.5,"5:00 م":17,"5:30 م":17.5,"6:00 م":18,"6:30 م":18.5,"7:00 م":19,"7:30 م":19.5,"8:00 م":20,"8:30 م":20.5,"9:00 م":21,"9:30 م":21.5,"10:00 م":22,"10:30 م":22.5,"11:00 م":23,"11:30 م":23.5,"12:00 ص":0,"12:30 ص":0.5,"1:00 ص":1,"1:30 ص":1.5,"2:00 ص":2,"2:30 ص":2.5,"3:00 ص":3,"3:30 ص":3.5,"4:00 ص":4,"4:30 ص":4.5,"5:00 ص":5,"5:30 ص":5.5,"6:00 ص":6,"6:30 ص":6.5,"7:00 ص":7,"7:30 ص":7.5,"8:00 ص":8,"8:30 ص":8.5,"9:00 ص":9,"9:30 ص":9.5,"10:00 ص":10,"10:30 ص":10.5,"11:00 ص":11,"11:30 ص":11.5};
 const DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-const NTFY_TOPIC='sunshave-iq-2847';
+const NTFY_TOPIC='sunshave-vip-2025';
 const DEFAULT_SVCS = [
   {id:'svc1', name:'حلاقة كاملة', price:20000, icon:'✂️'},
   {id:'svc2',name:'تحديد ولحية', price:10000, icon:'🪒'},
@@ -687,9 +687,8 @@ async function doBook(){
   db.bookings.push(b);
   try{
     await save();
-
-    // إشعار ntfy فوري
-    try{const _x=new XMLHttpRequest();_x.open('POST','https://ntfy.sh/'+NTFY_TOPIC,true);_x.setRequestHeader('Title','🔔 حجز جديد — Sun Shave');_x.setRequestHeader('Priority','high');_x.setRequestHeader('Tags','scissors,bell');_x.setRequestHeader('Content-Type','text/plain;charset=UTF-8');_x.send('👤 '+name+'\n✂️ '+svc.name+(selSvc===KIDS_SVC_ID&&kidsCount?' ('+kidsCount+' طفل)':'')+'\n🕐 '+selSlot+'\n📅 '+selDateLabel+'\n📞 '+phone);}catch(e){}
+    // إشعار ntfy فور الحجز
+    try{await fetch('https://ntfy.sh/sunshave-vip-2025',{method:'POST',headers:{'Title':'🔔 حجز جديد — Sun Shave','Priority':'high','Tags':'scissors','Content-Type':'text/plain; charset=utf-8'},body:`👤 ${b.name}\n✂️ ${b.service}\n🕐 ${b.slot}\n📅 ${b.day||b.dateKey}\n📞 ${b.phone}`});}catch{}
 
     document.getElementById('s-name').textContent=name;
     document.getElementById('s-svc').textContent=svc.name;

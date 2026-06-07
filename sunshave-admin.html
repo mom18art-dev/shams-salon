@@ -805,6 +805,7 @@ async function changePIN(){
 
 function showManual(){
   document.getElementById('manualForm').style.display='block';
+  updateManualSvcSelect();
   const ds=document.getElementById('mDay');ds.innerHTML='<option value="">اختار اليوم</option>';
   next7().forEach(d=>{const key=dk(d);const label=dl(d);const opt=document.createElement('option');opt.value=key;opt.textContent=label;opt.dataset.label=label;ds.appendChild(opt);});
   document.getElementById('mSlot').innerHTML='<option value="">اختار اليوم أولاً</option>';
@@ -959,14 +960,14 @@ function sendBulk(){
   toast(`📲 فتح ${db2.length} محادثة...`);
 }
 
-let lastCount=0;
+let lastCount=parseInt(localStorage.getItem('ss_lastCount')||'0');
 function checkNew(){const c=data.bookings.filter(b=>!b.cancelled).length;if(lastCount>0&&c>lastCount){try{const ctx=new(window.AudioContext||window.webkitAudioContext)();const o=ctx.createOscillator();const g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.type='sine';o.frequency.setValueAtTime(880,ctx.currentTime);o.frequency.setValueAtTime(1100,ctx.currentTime+0.1);g.gain.setValueAtTime(0.3,ctx.currentTime);g.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+0.5);o.start();o.stop(ctx.currentTime+0.5);}catch{}
   const diff=c-lastCount;
   toast(`🔔 حجز جديد! (${diff})`);
   // إشعار ntfy
   const newest=data.bookings.filter(b=>!b.cancelled).slice(-diff);
   newest.forEach(b=>{sendNtfy('🔔 حجز جديد — Sun Shave',`👤 ${b.name}\n✂️ ${b.service}\n🕐 ${b.slot}\n📅 ${b.day||b.dateKey}\n📞 ${b.phone}`);});
-}lastCount=c;}
+}lastCount=c;localStorage.setItem('ss_lastCount',c);}
 
 function render(){
   if(activeTab==='bookings')renderBookings();
@@ -992,7 +993,7 @@ window.markDone=markDone;window.saveNote=saveNote;window.sendWait=sendWait;
 window.clearAll=clearAll;window.renderArchive=renderArchive;window.renderAcc=renderAcc;
 window.addExp=addExp;window.delExp=delExp;window.notifyWait=notifyWait;
 // ─── ntfy ───
-const NTFY_TOPIC='sunshave-iq-2847';
+const NTFY_TOPIC='sunshave-vip-2025';
 async function sendNtfy(title,body){
   try{
     await fetch('https://ntfy.sh/'+NTFY_TOPIC,{
