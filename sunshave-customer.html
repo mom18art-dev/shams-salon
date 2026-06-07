@@ -389,8 +389,8 @@ const _app = initializeApp({
 const _db = getFirestore(_app);
 const DB = doc(_db, "shams", "data");
 
-const ALL_SLOTS = ["12:00 م","12:30 م","1:00 م","1:30 م","2:00 م","2:30 م","3:00 م","3:30 م","4:00 م","4:30 م","5:00 م","5:30 م","6:00 م","6:30 م","7:00 م","7:30 م","8:00 م","8:30 م","9:00 م","9:30 م","10:00 م","10:30 م","11:00 م","11:30 م","12:00 ص","12:30 ص","1:00 ص","1:30 ص","2:00 ص","2:30 ص","3:00 ص","3:30 ص","4:00 ص","4:30 ص","5:00 ص","5:30 ص","6:00 ص","6:30 ص","7:00 ص","7:30 ص","8:00 ص","8:30 ص","9:00 ص","9:30 ص","10:00 ص","10:30 ص","11:00 ص","11:30 ص"];
-const SLOT_H = {"12:00 م":12,"12:30 م":12.5,"1:00 م":13,"1:30 م":13.5,"2:00 م":14,"2:30 م":14.5,"3:00 م":15,"3:30 م":15.5,"4:00 م":16,"4:30 م":16.5,"5:00 م":17,"5:30 م":17.5,"6:00 م":18,"6:30 م":18.5,"7:00 م":19,"7:30 م":19.5,"8:00 م":20,"8:30 م":20.5,"9:00 م":21,"9:30 م":21.5,"10:00 م":22,"10:30 م":22.5,"11:00 م":23,"11:30 م":23.5,"12:00 ص":0,"12:30 ص":0.5,"1:00 ص":1,"1:30 ص":1.5,"2:00 ص":2,"2:30 ص":2.5,"3:00 ص":3,"3:30 ص":3.5,"4:00 ص":4,"4:30 ص":4.5,"5:00 ص":5,"5:30 ص":5.5,"6:00 ص":6,"6:30 ص":6.5,"7:00 ص":7,"7:30 ص":7.5,"8:00 ص":8,"8:30 ص":8.5,"9:00 ص":9,"9:30 ص":9.5,"10:00 ص":10,"10:30 ص":10.5,"11:00 ص":11,"11:30 ص":11.5};
+const ALL_SLOTS = ["12:00 م","1:00 م","2:00 م","3:00 م","4:00 م","5:00 م","6:00 م","7:00 م","8:00 م","9:00 م","10:00 م","11:00 م","12:00 ص","1:00 ص","2:00 ص","3:00 ص","4:00 ص","5:00 ص","6:00 ص","7:00 ص","8:00 ص","9:00 ص","10:00 ص","11:00 ص"];
+const SLOT_H = {"12:00 م":12,"1:00 م":13,"2:00 م":14,"3:00 م":15,"4:00 م":16,"5:00 م":17,"6:00 م":18,"7:00 م":19,"8:00 م":20,"9:00 م":21,"10:00 م":22,"11:00 م":23,"12:00 ص":0,"1:00 ص":1,"2:00 ص":2,"3:00 ص":3,"4:00 ص":4,"5:00 ص":5,"6:00 ص":6,"7:00 ص":7,"8:00 ص":8,"9:00 ص":9,"10:00 ص":10,"11:00 ص":11};
 const DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 const NTFY_TOPIC='sunshave-vip-2025';
@@ -558,7 +558,7 @@ function occupiedSlots(b){
   // الشسوار ما يشغل الوقت — يحجز بدون ما يمنع الآخرين
   if(isShiswarSvc(b.serviceId))return[];
   const dur=getBookingDuration(b);
-  const count=Math.max(1,Math.ceil(dur/30));
+  const count=Math.max(1,Math.ceil(dur/60));
   const allS=slots();
   const si=allS.indexOf(b.slot);
   if(si<0)return[b.slot];
@@ -578,7 +578,7 @@ function canBook(dk,startSlot){
   // الشسوار مفتوح بأي وقت حتى لو محجوز
   if(isShiswarSvc(selSvc))return !isPast(dk,startSlot);
   const dur=selDur();
-  const count=Math.max(1,Math.ceil(dur/30));
+  const count=Math.max(1,Math.ceil(dur/60));
   const allS=slots();
   const si=allS.indexOf(startSlot);
   if(si<0)return false;
@@ -595,7 +595,7 @@ function canBook(dk,startSlot){
     const bi=allS.indexOf(b.slot);
     if(bi<0)return false;
     const bdur=getBookingDuration(b);
-    const bcount=Math.max(1,Math.ceil(bdur/30));
+    const bcount=Math.max(1,Math.ceil(bdur/60));
     const bEnd=bi+bcount;
     // تداخل: نطاق الجديد يتقاطع مع نطاق القائم
     return si<bEnd&&newEnd>bi;
@@ -736,20 +736,21 @@ function renderSlots(){
   document.getElementById('allBkdBox').style.display=full?'block':'none';
   document.getElementById('waitBtnWrap').style.display=full?'block':'none';
   document.getElementById('bookBtnWrap').style.display=full?'none':'block';
-  slots().forEach(s=>{
+  // نعرض الأوقات بفرق يساوي مدة الخدمة (ساعة = كل ساعة)
+  const step=selSvc&&!isShiswarSvc(selSvc)?Math.max(1,Math.ceil(dur/60)):1;
+  const allS=slots();
+  allS.forEach((s,idx)=>{
+    // نعرض بس كل step سلوت — إلا لو في حجوز يكسر الترتيب
+    if(step>1&&idx%step!==0)return;
     const past=isPast(selDateKey,s);
-    // الشسوار ما يعتبر الوقت محجوز — مفتوح دايماً
     const bkd=isShiswarSvc(selSvc)?false:isBooked(selDateKey,s);
-    // وقت فاضي لكن ما يكفي أوقات بعده للخدمة المختارة
     const notEnough=!past&&!bkd&&selSvc&&!canBook(selDateKey,s);
+    if(notEnough)return;
     const b=document.createElement('button');
     if(bkd){
       b.className='slot-btn bkd';b.textContent=s;b.disabled=true;
     } else if(past){
       b.className='slot-btn past';b.textContent=s;b.disabled=true;
-    } else if(notEnough){
-      b.className='slot-btn past';b.textContent=s;b.disabled=true;
-      b.title='لا يكفي وقت لهذه الخدمة';
     } else {
       b.className='slot-btn'+(selSlot===s?' sel':'');
       b.textContent=s;

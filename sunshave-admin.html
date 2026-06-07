@@ -478,8 +478,8 @@ window._fbSetPin=async function(plainPin){
   }
 })();
 
-const ALL_SLOTS=["12:00 م","12:30 م","1:00 م","1:30 م","2:00 م","2:30 م","3:00 م","3:30 م","4:00 م","4:30 م","5:00 م","5:30 م","6:00 م","6:30 م","7:00 م","7:30 م","8:00 م","8:30 م","9:00 م","9:30 م","10:00 م","10:30 م","11:00 م","11:30 م","12:00 ص","12:30 ص","1:00 ص","1:30 ص","2:00 ص","2:30 ص","3:00 ص","3:30 ص","4:00 ص","4:30 ص","5:00 ص","5:30 ص","6:00 ص","6:30 ص","7:00 ص","7:30 ص","8:00 ص","8:30 ص","9:00 ص","9:30 ص","10:00 ص","10:30 ص","11:00 ص","11:30 ص"];
-const SH={"12:00 م":12,"12:30 م":12.5,"1:00 م":13,"1:30 م":13.5,"2:00 م":14,"2:30 م":14.5,"3:00 م":15,"3:30 م":15.5,"4:00 م":16,"4:30 م":16.5,"5:00 م":17,"5:30 م":17.5,"6:00 م":18,"6:30 م":18.5,"7:00 م":19,"7:30 م":19.5,"8:00 م":20,"8:30 م":20.5,"9:00 م":21,"9:30 م":21.5,"10:00 م":22,"10:30 م":22.5,"11:00 م":23,"11:30 م":23.5,"12:00 ص":0,"12:30 ص":0.5,"1:00 ص":1,"1:30 ص":1.5,"2:00 ص":2,"2:30 ص":2.5,"3:00 ص":3,"3:30 ص":3.5,"4:00 ص":4,"4:30 ص":4.5,"5:00 ص":5,"5:30 ص":5.5,"6:00 ص":6,"6:30 ص":6.5,"7:00 ص":7,"7:30 ص":7.5,"8:00 ص":8,"8:30 ص":8.5,"9:00 ص":9,"9:30 ص":9.5,"10:00 ص":10,"10:30 ص":10.5,"11:00 ص":11,"11:30 ص":11.5};
+const ALL_SLOTS=["12:00 م","1:00 م","2:00 م","3:00 م","4:00 م","5:00 م","6:00 م","7:00 م","8:00 م","9:00 م","10:00 م","11:00 م","12:00 ص","1:00 ص","2:00 ص","3:00 ص","4:00 ص","5:00 ص","6:00 ص","7:00 ص","8:00 ص","9:00 ص","10:00 ص","11:00 ص"];
+const SH={"12:00 م":12,"1:00 م":13,"2:00 م":14,"3:00 م":15,"4:00 م":16,"5:00 م":17,"6:00 م":18,"7:00 م":19,"8:00 م":20,"9:00 م":21,"10:00 م":22,"11:00 م":23,"12:00 ص":0,"1:00 ص":1,"2:00 ص":2,"3:00 ص":3,"4:00 ص":4,"5:00 ص":5,"6:00 ص":6,"7:00 ص":7,"8:00 ص":8,"9:00 ص":9,"10:00 ص":10,"11:00 ص":11};
 const DAYS=["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const MONTHS=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 
@@ -830,7 +830,7 @@ function slotsOccupiedByBooking(b){
   else if(b.kidsCount&&isKidsSvc(b.serviceId))dur=Number(b.kidsCount)*KIDS_DUR_PER;
   else if(b.boysCount&&isBoysSvc(b.serviceId))dur=Number(b.boysCount)*BOYS_DUR_PER;
   else{const svc=svcs.find(s=>s.id===b.serviceId||s.name===b.service);dur=svc&&svc.duration?svc.duration:30;}
-  const count=Math.max(1,Math.ceil(dur/30));
+  const count=Math.max(1,Math.ceil(dur/60));
   const allS=slots();
   const si=allS.indexOf(b.slot);
   if(si<0)return[b.slot];
@@ -844,8 +844,8 @@ function isSlotConflict(dateKey,startSlot,serviceId,excludeId){
   if(si<0)return true;
   const svcs=data.services||[];
   const svc=svcs.find(s=>s.id===serviceId||s.name===serviceId);
-  const dur=svc&&svc.duration?svc.duration:30;
-  const count=Math.max(1,Math.ceil(dur/30));
+  const dur=svc&&svc.duration?svc.duration:60;
+  const count=Math.max(1,Math.ceil(dur/60));
   const newEnd=si+count;
   return data.bookings.some(b=>{
     if(b.dateKey!==dateKey||b.cancelled)return false;
@@ -853,7 +853,7 @@ function isSlotConflict(dateKey,startSlot,serviceId,excludeId){
     const bi=allS.indexOf(b.slot);
     if(bi<0)return false;
     const bdur=getSvcDuration(b.serviceId||b.service);
-    const bcount=Math.max(1,Math.ceil(bdur/30));
+    const bcount=Math.max(1,Math.ceil(bdur/60));
     const bEnd=bi+bcount;
     return si<bEnd&&newEnd>bi;
   });
@@ -955,9 +955,9 @@ function updateMSlots(){
   const isKids=isKidsSvc(svcId);
   const isBoys=isBoysSvc(svcId);
   let newDurSlots=1;
-  if(isKids&&mKidsCount)newDurSlots=Math.max(1,Math.ceil(mKidsCount*KIDS_DUR_PER/30));
-  else if(isBoys&&mBoysCount)newDurSlots=Math.max(1,Math.ceil(mBoysCount*BOYS_DUR_PER/30));
-  else if(svcId){const svc=(data.services||[]).find(s=>s.id===svcId);if(svc&&svc.duration)newDurSlots=Math.max(1,Math.ceil(svc.duration/30));}
+  if(isKids&&mKidsCount)newDurSlots=Math.max(1,Math.ceil(mKidsCount*KIDS_DUR_PER/60));
+  else if(isBoys&&mBoysCount)newDurSlots=Math.max(1,Math.ceil(mBoysCount*BOYS_DUR_PER/60));
+  else if(svcId){const svc=(data.services||[]).find(s=>s.id===svcId);if(svc&&svc.duration)newDurSlots=Math.max(1,Math.ceil(svc.duration/60));}
   const allS=slots();
   workSlots.forEach(s=>{
     const si=allS.indexOf(s);
