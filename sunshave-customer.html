@@ -195,6 +195,7 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);min-he
   <div class="brand-name">SUN SHAVE</div>
   <div class="brand-sub">BARBER SHOP</div>
   <div class="hero-line"></div>
+  <div style="font-family:'Cairo',sans-serif;font-size:13px;color:var(--gold);font-weight:700;margin-bottom:6px;letter-spacing:1px;">✂️ حيدر كاظم</div>
   <div class="work-badge" id="workBadge">احجز موعدك الآن</div>
 </div>
 
@@ -380,7 +381,44 @@ function normPhone(p){const c=p.replace(/\D/g,'');return c.startsWith('964')?'0'
 function validPhone(p){return/^07[3-9]\d{8}$/.test(normPhone(p));}
 function validName(n){return n.trim().length>=3&&/[\u0600-\u06FFa-zA-Z]/.test(n);}
 function slots(){const wh=db.workHours||{start:"5:00 م",end:"11:00 م"};const si=ALL_SLOTS.indexOf(wh.start);const ei=ALL_SLOTS.indexOf(wh.end);if(si<0||ei<0)return["5:00 م","6:00 م","7:00 م","8:00 م","9:00 م","10:00 م","11:00 م"];return ei>=si?ALL_SLOTS.slice(si,ei+1):[...ALL_SLOTS.slice(si),...ALL_SLOTS.slice(0,ei+1)];}
-function slotDateTime(dk,s){
+
+// مدة الخدمة المختارة بالدقائق
+function selSvcDuration(){
+  if(!selSvc)return 30;
+  const svc=(db.services||SVCS).find(s=>s.id===selSvc);
+  return svc&&svc.duration?svc.duration:30;
+}
+
+// الأوقات التي يشغلها حجز معين بناءً على مدته
+function slotsOccupiedBy(startSlot, durationMins){
+  const count=Math.max(1, Math.ceil(durationMins/30));
+  const allS=slots();
+  const si=allS.indexOf(startSlot);
+  if(si<0)return[startSlot];
+  return allS.slice(si, si+count);
+}
+
+// هل وقت معين محجوز (يشمل الأوقات التي تمتد فيها خدمة سابقة)
+function isBooked(dk,s){
+  return db.bookings.some(b=>{
+    if(b.dateKey!==dk||b.cancelled)return false;
+    const dur=(db.services||SVCS).find(sv=>sv.id===b.serviceId)?.duration||30;
+    const occupied=slotsOccupiedBy(b.slot, dur);
+    return occupied.includes(s);
+  });
+}
+
+// هل يوجد عدد كافٍ من الأوقات المتتالية الحرة للخدمة المختارة
+function isSlotAvailableForSvc(dk, startSlot){
+  const dur=selSvcDuration();
+  const count=Math.max(1, Math.ceil(dur/30));
+  const allS=slots();
+  const si=allS.indexOf(startSlot);
+  if(si<0)return false;
+  if(si+count>allS.length)return false; // ما يكفي أوقات
+  const needed=allS.slice(si, si+count);
+  return needed.every(s=>!isBooked(dk,s)&&!isPast(dk,s));
+}
   const h=SLOT_H[s];if(h===undefined)return null;
   const hFloor=Math.floor(h);const mins=h%1!==0?30:0;
   const isMidnight=s&&s.includes('ص')&&h<12;
@@ -394,7 +432,6 @@ function isPast(dk,s){
   if(!apptTime)return false;
   return new Date()>=apptTime;
 }
-function isBooked(dk,s){return db.bookings.some(b=>b.dateKey===dk&&b.slot===s&&!b.cancelled);}
 function phoneBooked(p){const np=normPhone(p);return db.bookings.some(b=>!b.cancelled&&normPhone(b.phone||'')===np);}
 function allBooked(dk){const av=slots().filter(s=>!isPast(dk,s));return av.length===0||av.every(s=>isBooked(dk,s));}
 
@@ -450,8 +487,10 @@ function renderSvcs(){
   SVCS.forEach(s=>{
     const b=document.createElement('button');
     b.className='svc-btn'+(selSvc===s.id?' sel':'');
-    b.innerHTML=`<span class="svc-name">${s.name}</span><span class="svc-price">${fmtPrice(s.price)}</span>`;
-    b.onclick=()=>{selSvc=s.id;renderSvcs();updateBtn();};
+    const dur=s.duration||30;
+    const durLabel=dur===30?'٣٠ د':dur===45?'٤٥ د':dur===60?'ساعة':dur===90?'ساعة ونص':'ساعتين';
+    b.innerHTML=`<span class="svc-name">${s.name}</span><span class="svc-price">${fmtPrice(s.price)}</span><span style="font-size:9px;color:var(--muted);margin-top:2px;display:block">⏱ ${durLabel}</span>`;
+    b.onclick=()=>{selSvc=s.id;selSlot=null;renderSvcs();renderSlots();updateBtn();};
     g.appendChild(b);
   });
 }
@@ -473,18 +512,29 @@ function renderSlots(){
   const wrap=document.getElementById('slotsWrap');
   if(!selDateKey){wrap.style.display='none';return;}
   wrap.style.display='block';
-  document.getElementById('slotsLabel').textContent=`الأوقات — ${selDateLabel}`;
+  const dur=selSvcDuration();
+  const durLabel=dur===30?'٣٠ د':dur===45?'٤٥ د':dur===60?'ساعة':dur===90?'ساعة ونص':'ساعتين';
+  document.getElementById('slotsLabel').textContent=`الأوقات — ${selDateLabel}${selSvc?' (مدة الخدمة: '+durLabel+')':''}`;
   const g=document.getElementById('slotsGrid');g.innerHTML='';
   const full=allBooked(selDateKey);
   document.getElementById('allBkdBox').style.display=full?'block':'none';
   document.getElementById('waitBtnWrap').style.display=full?'block':'none';
   document.getElementById('bookBtnWrap').style.display=full?'none':'block';
   slots().forEach(s=>{
-    const bkd=isBooked(selDateKey,s),past=isPast(selDateKey,s);
+    const past=isPast(selDateKey,s);
+    const available=!past&&isSlotAvailableForSvc(selDateKey,s);
+    const bkd=isBooked(selDateKey,s);
     const b=document.createElement('button');
-    b.className='slot-btn'+(bkd?' bkd':'')+(past&&!bkd?' past':'')+(selSlot===s?' sel':'');
-    b.textContent=s;
-    if(!bkd&&!past)b.onclick=()=>{selSlot=s;renderSlots();updateBtn();};
+    // مخفي لو مو متاح لكن مو محجوز (يعني ما يكفي أوقات بعده)
+    if(!bkd&&!past&&!available){
+      b.className='slot-btn past';
+      b.textContent=s;
+      b.disabled=true;
+    } else {
+      b.className='slot-btn'+(bkd?' bkd':'')+(past&&!bkd?' past':'')+(selSlot===s?' sel':'');
+      b.textContent=s;
+      if(available)b.onclick=()=>{selSlot=s;renderSlots();updateBtn();};
+    }
     g.appendChild(b);
   });
 }

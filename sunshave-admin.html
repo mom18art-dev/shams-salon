@@ -234,7 +234,7 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);color:
       <img src="https://raw.githubusercontent.com/Barberhub-iraqi/shams-salon/main/logo.png" width="28" height="28" alt="Sun Shave" style="object-fit:contain;"/>
       <div>
         <div class="hdr-brand">SUN SHAVE</div>
-        <div class="hdr-sub">لوحة التحكم</div>
+        <div class="hdr-sub">✂️ حيدر كاظم — لوحة التحكم</div>
       </div>
     </div>
     <div style="display:flex;gap:7px;align-items:center;">
@@ -802,14 +802,30 @@ function showManual(){
   document.getElementById('mSlot').innerHTML='<option value="">اختار اليوم أولاً</option>';
 }
 function hideManual(){document.getElementById('manualForm').style.display='none';['mName','mPhone'].forEach(id=>document.getElementById(id).value='');document.getElementById('mSvc').value='';document.getElementById('mDay').value='';}
+function slotsOccupiedByBooking(b){
+  const svcs=data.services||[];
+  const svc=svcs.find(s=>s.id===b.serviceId||s.name===b.service);
+  const dur=svc&&svc.duration?svc.duration:30;
+  const count=Math.max(1,Math.ceil(dur/30));
+  const allS=slots();
+  const si=allS.indexOf(b.slot);
+  if(si<0)return[b.slot];
+  return allS.slice(si,si+count);
+}
+
 function updateMSlots(){
   const dateKey=document.getElementById('mDay').value;
   const sel=document.getElementById('mSlot');
   sel.innerHTML='<option value="">اختار الساعة</option>';
   if(!dateKey)return;
   const workSlots=slots();
+  // حساب كل الأوقات المحجوزة مع مراعاة مدة الخدمة
+  const occupiedSlots=new Set();
+  data.bookings.filter(b=>b.dateKey===dateKey&&!b.cancelled).forEach(b=>{
+    slotsOccupiedByBooking(b).forEach(s=>occupiedSlots.add(s));
+  });
   workSlots.forEach(s=>{
-    const bkd=data.bookings.some(b=>b.dateKey===dateKey&&b.slot===s&&!b.cancelled);
+    const bkd=occupiedSlots.has(s);
     const opt=document.createElement('option');
     opt.value=s;
     opt.textContent=bkd?`${s} — محجوز`:s;
