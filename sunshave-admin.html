@@ -396,6 +396,12 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);color:
         <button class="save-btn" onclick="changePIN()">🔒 تغيير الرمز</button>
       </div>
 
+      <div class="scard" style="border-color:rgba(201,168,76,0.2)">
+        <div class="stitle">🔔 إشعارات ntfy</div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">التوبيك: <span style="color:var(--gold);font-weight:700">sunshave-iq-2847</span></div>
+        <button onclick="testNtfy()" style="width:100%;padding:11px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:8px;color:var(--gold);font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📲 اختبار الإشعار</button>
+      </div>
+
       <div class="scard" style="border-color:rgba(107,32,32,0.3)">
         <div class="stitle" style="color:#EF5350">⚠️ منطقة الخطر</div>
         <button onclick="clearAll()" style="width:100%;padding:11px;background:rgba(107,32,32,0.12);border:1px solid rgba(107,32,32,0.35);border-radius:8px;color:#EF5350;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑️ مسح كل الحجوزات</button>
@@ -744,6 +750,7 @@ function renderSettings(){
         <div>
           <div class="svc-price-lbl">المدة</div>
           <select class="svc-price-inp" id="sd-${s.id}" style="cursor:pointer">
+            <option value="15" ${(s.duration||60)===15?'selected':''}>15 دقيقة</option>
             <option value="30" ${(s.duration||60)===30?'selected':''}>30 دقيقة</option>
             <option value="45" ${(s.duration||60)===45?'selected':''}>45 دقيقة</option>
             <option value="60" ${(s.duration||60)===60?'selected':''}>ساعة</option>
@@ -843,8 +850,8 @@ function isSlotConflict(dateKey,startSlot,serviceId,excludeId){
 }
 
 const KIDS_SVC_ID='svc4';
-const KIDS_PRICE_PER=10000;
 const KIDS_DUR_PER=15;
+function kidsUnitPrice(){const svc=(data.services||[]).find(s=>s.id===KIDS_SVC_ID);return svc?Number(svc.price):10000;}
 let mKidsCount=0;
 
 function onMSvcChange(){
@@ -871,12 +878,12 @@ function renderMKidsGrid(){
     b.style.cssText='background:'+(mKidsCount===i?'linear-gradient(135deg,#C9A84C,#E8C96A)':'var(--black)')+';border:1px solid '+(mKidsCount===i?'var(--gold)':'var(--border2)')+';border-radius:8px;color:'+(mKidsCount===i?'#000':'var(--text)')+';font-family:Cairo,sans-serif;font-size:14px;font-weight:700;padding:8px 4px;cursor:pointer;transition:all .15s;';
     b.textContent=i;
     b.onclick=()=>{mKidsCount=i;renderMKidsGrid();updateMSlots();
-      document.getElementById('mKidsInfo').textContent=`${i} طفل — مدة: ${i*KIDS_DUR_PER} دقيقة — سعر: ${(i*KIDS_PRICE_PER).toLocaleString('ar-IQ')} د.ع`;
+      document.getElementById('mKidsInfo').textContent=`${i} طفل — مدة: ${i*KIDS_DUR_PER} دقيقة — سعر: ${(i*kidsUnitPrice()).toLocaleString('ar-IQ')} د.ع`;
     };
     g.appendChild(b);
   }
   if(mKidsCount){
-    document.getElementById('mKidsInfo').textContent=`${mKidsCount} طفل — مدة: ${mKidsCount*KIDS_DUR_PER} دقيقة — سعر: ${(mKidsCount*KIDS_PRICE_PER).toLocaleString('ar-IQ')} د.ع`;
+    document.getElementById('mKidsInfo').textContent=`${mKidsCount} طفل — مدة: ${mKidsCount*KIDS_DUR_PER} دقيقة — سعر: ${(mKidsCount*kidsUnitPrice()).toLocaleString('ar-IQ')} د.ع`;
   }
 }
 
@@ -932,7 +939,7 @@ async function saveManual(){
   let finalDuration=null;
   let finalServiceName=svcName;
   if(isKids&&mKidsCount){
-    price=mKidsCount*KIDS_PRICE_PER;
+    price=mKidsCount*kidsUnitPrice();
     finalDuration=mKidsCount*KIDS_DUR_PER;
     finalServiceName=`${svcName} (${mKidsCount} طفل)`;
   }
@@ -992,8 +999,23 @@ window.clearAll=clearAll;window.renderArchive=renderArchive;window.renderAcc=ren
 window.addExp=addExp;window.delExp=delExp;window.notifyWait=notifyWait;
 // ─── ntfy ───
 const NTFY_TOPIC='sunshave-iq-2847';
-async function sendNtfy(title,body){try{fetch(`https://ntfy.sh/${NTFY_TOPIC}?title=${encodeURIComponent(title)}&priority=high&tags=scissors`,{method:'POST',mode:'no-cors',body:body});}catch{}}
-window.sendNtfy=sendNtfy;
+async function sendNtfy(title,body){
+  return new Promise(resolve=>{
+    try{
+      const xhr=new XMLHttpRequest();
+      xhr.open('POST','https://ntfy.sh/'+NTFY_TOPIC,true);
+      xhr.setRequestHeader('Title',title);
+      xhr.setRequestHeader('Priority','high');
+      xhr.setRequestHeader('Tags','scissors,bell');
+      xhr.setRequestHeader('Content-Type','text/plain;charset=UTF-8');
+      xhr.onload=()=>resolve(true);
+      xhr.onerror=()=>resolve(false);
+      xhr.send(body);
+    }catch{resolve(false);}
+  });
+}
+async function testNtfy(){const ok=await sendNtfy('✅ اختبار — Sun Shave','الإشعارات تعمل! 🎉');toast(ok?'✅ الإشعار وصل':'❌ فشل — تحقق من الإنترنت');}
+window.sendNtfy=sendNtfy;window.testNtfy=testNtfy;
 // ─────────────
 
 window.saveHours=saveHours;window.toggleDay=toggleDay;window.changePIN=changePIN;

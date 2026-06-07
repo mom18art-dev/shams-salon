@@ -688,15 +688,8 @@ async function doBook(){
   try{
     await save();
 
-    // ── إشعار ntfy فوري عند الحجز ──
-    (()=>{
-      const NTFY_TOPIC="sunshave-iq-2847";
-      const ntfyTitle="🔔 حجز جديد — Sun Shave";
-      const svcLabel=svc.name+(selSvc===KIDS_SVC_ID&&kidsCount?` (${kidsCount} طفل)`:"");
-      const ntfyBody=`👤 ${name}\n✂️ ${svcLabel}\n🕐 ${selSlot}\n📅 ${selDateLabel}\n📞 ${phone}`;
-      try{const xhr=new XMLHttpRequest();xhr.open("POST","https://ntfy.sh/"+NTFY_TOPIC,true);xhr.setRequestHeader("Title",ntfyTitle);xhr.setRequestHeader("Priority","high");xhr.setRequestHeader("Tags","scissors,bell");xhr.setRequestHeader("Content-Type","text/plain;charset=UTF-8");xhr.send(ntfyBody);}catch{}
-    })();
-    // ────────────────────────────────
+    // إشعار ntfy فوري
+    try{const _x=new XMLHttpRequest();_x.open('POST','https://ntfy.sh/'+NTFY_TOPIC,true);_x.setRequestHeader('Title','🔔 حجز جديد — Sun Shave');_x.setRequestHeader('Priority','high');_x.setRequestHeader('Tags','scissors,bell');_x.setRequestHeader('Content-Type','text/plain;charset=UTF-8');_x.send('👤 '+name+'\n✂️ '+svc.name+(selSvc===KIDS_SVC_ID&&kidsCount?' ('+kidsCount+' طفل)':'')+'\n🕐 '+selSlot+'\n📅 '+selDateLabel+'\n📞 '+phone);}catch(e){}
 
     document.getElementById('s-name').textContent=name;
     document.getElementById('s-svc').textContent=svc.name;
