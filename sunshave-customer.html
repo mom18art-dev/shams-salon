@@ -427,6 +427,8 @@ function getBoysSvc(){return SVCS.find(s=>s.name&&s.name.includes('صبي'))||nu
 function getBoysSvcId(){const s=getBoysSvc();return s?s.id:null;}
 function isBoysSvc(id){const svc=SVCS.find(s=>s.id===id);return !!(svc&&svc.name&&svc.name.includes('صبي'));}
 function boysUnitPrice(){const svc=getBoysSvc();return svc?Number(svc.price):10000;}
+function isShiswarSvc(id){const svc=SVCS.find(s=>s.id===id);return !!(svc&&svc.name&&svc.name.includes('شسوار'));}
+
 
 function openKidsModal(){
   const unitPrice=kidsUnitPrice();
@@ -562,6 +564,8 @@ function selDur(){
 
 // كل الأوقات التي يشغلها حجز (بناءً على مدته)
 function occupiedSlots(b){
+  // الشسوار ما يشغل الوقت — يحجز بدون ما يمنع الآخرين
+  if(isShiswarSvc(b.serviceId))return[];
   const dur=getBookingDuration(b);
   const count=Math.max(1,Math.ceil(dur/30));
   const allS=slots();
@@ -580,6 +584,8 @@ function isBooked(dk,s){
 
 // هل يمكن حجز وقت معين للخدمة المختارة (أوقات كافية متتالية)
 function canBook(dk,startSlot){
+  // الشسوار مفتوح بأي وقت حتى لو محجوز
+  if(isShiswarSvc(selSvc))return !isPast(dk,startSlot);
   const dur=selDur();
   const count=Math.max(1,Math.ceil(dur/30));
   const allS=slots();
@@ -727,7 +733,8 @@ function renderSlots(){
   document.getElementById('bookBtnWrap').style.display=full?'none':'block';
   slots().forEach(s=>{
     const past=isPast(selDateKey,s);
-    const bkd=isBooked(selDateKey,s);
+    // الشسوار ما يعتبر الوقت محجوز — مفتوح دايماً
+    const bkd=isShiswarSvc(selSvc)?false:isBooked(selDateKey,s);
     // وقت فاضي لكن ما يكفي أوقات بعده للخدمة المختارة
     const notEnough=!past&&!bkd&&selSvc&&!canBook(selDateKey,s);
     const b=document.createElement('button');
@@ -758,7 +765,7 @@ async function doBook(){
   const btn=document.getElementById('bookBtn');
   btn.disabled=true;btn.textContent='⏳ جاري الحجز...';busy=true;
   await load();
-  if(isBooked(selDateKey,selSlot)){toast('هذا الوقت انحجز للتو!');renderSlots();btn.disabled=false;updateBtn();busy=false;return;}
+  if(!isShiswarSvc(selSvc)&&isBooked(selDateKey,selSlot)){toast('هذا الوقت انحجز للتو!');renderSlots();btn.disabled=false;updateBtn();busy=false;return;}
   if(phoneBooked(phone)){toast('هذا الرقم عنده حجز مسبق!');btn.disabled=false;updateBtn();busy=false;return;}
   const svc=SVCS.find(x=>x.id===selSvc);
   const finalPrice=isKidsSvc(selSvc)&&kidsOverridePrice?kidsOverridePrice:isBoysSvc(selSvc)&&boysOverridePrice?boysOverridePrice:(svc?svc.price:0);
