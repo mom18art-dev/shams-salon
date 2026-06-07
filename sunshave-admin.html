@@ -396,12 +396,6 @@ body{font-family:'Cairo',sans-serif;direction:rtl;background:var(--black);color:
         <button class="save-btn" onclick="changePIN()">🔒 تغيير الرمز</button>
       </div>
 
-      <div class="scard" style="border-color:rgba(201,168,76,0.2)">
-        <div class="stitle">🔔 إشعارات ntfy</div>
-        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">التوبيك: <span style="color:var(--gold);font-weight:700">sunshave-iq-2847</span></div>
-        <button onclick="testNtfy()" style="width:100%;padding:11px;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.3);border-radius:8px;color:var(--gold);font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">📲 اختبار الإشعار</button>
-      </div>
-
       <div class="scard" style="border-color:rgba(107,32,32,0.3)">
         <div class="stitle" style="color:#EF5350">⚠️ منطقة الخطر</div>
         <button onclick="clearAll()" style="width:100%;padding:11px;background:rgba(107,32,32,0.12);border:1px solid rgba(107,32,32,0.35);border-radius:8px;color:#EF5350;font-family:'Cairo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">🗑️ مسح كل الحجوزات</button>
@@ -1000,22 +994,20 @@ window.addExp=addExp;window.delExp=delExp;window.notifyWait=notifyWait;
 // ─── ntfy ───
 const NTFY_TOPIC='sunshave-iq-2847';
 async function sendNtfy(title,body){
-  return new Promise(resolve=>{
-    try{
-      const xhr=new XMLHttpRequest();
-      xhr.open('POST','https://ntfy.sh/'+NTFY_TOPIC,true);
-      xhr.setRequestHeader('Title',title);
-      xhr.setRequestHeader('Priority','high');
-      xhr.setRequestHeader('Tags','scissors,bell');
-      xhr.setRequestHeader('Content-Type','text/plain;charset=UTF-8');
-      xhr.onload=()=>resolve(true);
-      xhr.onerror=()=>resolve(false);
-      xhr.send(body);
-    }catch{resolve(false);}
-  });
+  try{
+    await fetch('https://ntfy.sh/'+NTFY_TOPIC,{
+      method:'POST',
+      headers:{
+        'Title':title,
+        'Priority':'high',
+        'Tags':'scissors',
+        'Content-Type':'text/plain; charset=utf-8'
+      },
+      body:body
+    });
+  }catch(e){console.warn('ntfy error:',e);}
 }
-async function testNtfy(){const ok=await sendNtfy('✅ اختبار — Sun Shave','الإشعارات تعمل! 🎉');toast(ok?'✅ الإشعار وصل':'❌ فشل — تحقق من الإنترنت');}
-window.sendNtfy=sendNtfy;window.testNtfy=testNtfy;
+window.sendNtfy=sendNtfy;
 // ─────────────
 
 window.saveHours=saveHours;window.toggleDay=toggleDay;window.changePIN=changePIN;
