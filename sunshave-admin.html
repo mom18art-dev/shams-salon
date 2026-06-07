@@ -781,7 +781,7 @@ async function saveServices(){
 function updateManualSvcSelect(){
   const sel=document.getElementById('mSvc');if(!sel)return;
   const svcs=data.services||[];
-  sel.innerHTML='<option value="">اختار الخدمة</option>'+svcs.map(s=>`<option value="${s.name}" data-p="${s.price}">${s.name} — ${Number(s.price).toLocaleString()} د.ع</option>`).join('');
+  sel.innerHTML='<option value="">اختار الخدمة</option>'+svcs.map(s=>`<option value="${s.name}" data-p="${s.price}" data-id="${s.id}">${s.name} — ${Number(s.price).toLocaleString()} د.ع</option>`).join('');
 }
 async function saveHours(){const ws=document.getElementById('wStart');const we=document.getElementById('wEnd');const st=ws.options[ws.selectedIndex].value;const en=we.options[we.selectedIndex].value;data.workHours={start:st,end:en};const am=document.getElementById('avgMins');if(am)localStorage.setItem('ss_avg_mins',am.value);try{await save();toast('✅ تم حفظ الإعدادات');}catch{toast('❌ فشل');}}
 async function toggleDay(key){if(!data.disabledDays)data.disabledDays=[];const was=data.disabledDays.includes(key);if(was)data.disabledDays=data.disabledDays.filter(d=>d!==key);else data.disabledDays.push(key);try{await save();toast(was?'✅ تم تفعيل اليوم':'🚫 تم تعطيل اليوم');renderSettings();}catch{if(was)data.disabledDays.push(key);else data.disabledDays=data.disabledDays.filter(d=>d!==key);}}
@@ -839,7 +839,8 @@ async function saveManual(){
   const de=document.getElementById('mDay');const dateKey=de.value;const dateLabel=de.options[de.selectedIndex]?.dataset?.label||'';
   const slot=document.getElementById('mSlot').value;
   if(!name){toast('أدخل الاسم');return;}if(!svc){toast('اختار الخدمة');return;}if(!dateKey){toast('اختار اليوم');return;}if(!slot){toast('اختار الساعة');return;}
-  const b={id:'ss'+Date.now(),name,phone,service:svc,price:Number(price),dateKey,dateLabel,slot,day:dateLabel,createdAt:Date.now(),bookedAt:new Date().toLocaleTimeString('ar-IQ'),reminded:true,cancelled:false,manual:true,note:''};
+  const svcId=se.options[se.selectedIndex]?.dataset?.id||'';
+  const b={id:'ss'+Date.now(),name,phone,service:svc,serviceId:svcId,price:Number(price),dateKey,dateLabel,slot,day:dateLabel,createdAt:Date.now(),bookedAt:new Date().toLocaleTimeString('ar-IQ'),reminded:true,cancelled:false,manual:true,note:''};
   data.bookings.push(b);try{await save();hideManual();render();toast(`✅ حُجز ${name}`);}catch{data.bookings.pop();toast('❌ فشل');}
 }
 
