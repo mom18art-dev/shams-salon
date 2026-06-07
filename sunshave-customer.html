@@ -394,16 +394,8 @@ const SLOT_H = {"12:00 م":12,"12:30 م":12.5,"1:00 م":13,"1:30 م":13.5,"2:00 
 const DAYS = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
 const MONTHS = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
 const NTFY_TOPIC='sunshave-vip-2025';
-const DEFAULT_SVCS = [
-  {id:'svc1', name:'حلاقة كاملة', price:20000, icon:'✂️'},
-  {id:'svc2',name:'تحديد ولحية', price:10000, icon:'🪒'},
-  {id:'svc3',name:'شسوار',        price:5000,  icon:'💧'},
-  {id:'svc4',name:'طفل',          price:10000, icon:'👦'},
-  {id:'svc5',name:'تنظيف بشرة عميق', price:15000, icon:'🧴'},
-  {id:'svc6',name:'تنظيف بشرة عادي', price:8000, icon:'🫧'},
-  {id:'svc7',name:'صبي',           price:7500,  icon:'🧒'},
-];
-let SVCS = [...DEFAULT_SVCS];
+// الخدمات تُحمَّل من Firebase دائماً — ديناميكية
+let SVCS = [];
 
 let db={bookings:[],waitlist:[],disabledDays:[],workHours:{start:"4:00 م",end:"11:00 م"}};
 let selSvc=null,selDateKey=null,selDateLabel=null,selSlot=null,busy=false;
@@ -542,10 +534,9 @@ function slotDateTime(dk,s){
 }
 function isPast(dk,s){const t=slotDateTime(dk,s);if(!t)return false;return new Date()>=t;}
 
-// مدة خدمة معينة بالدقائق
+// مدة خدمة معينة بالدقائق — تقرأ من SVCS (المحدّثة من Firebase)
 function getSvcDuration(serviceId){
-  const svcs=db.services||SVCS;
-  const svc=svcs.find(s=>s.id===serviceId);
+  const svc=SVCS.find(s=>s.id===serviceId||s.name===serviceId);
   return svc&&svc.duration?Number(svc.duration):30;
 }
 // مدة حجز معين (يأخذ بعين الاعتبار الأطفال اليدوي)
@@ -631,13 +622,19 @@ async function load(){
         waitlist:typeof r.waitlist==='string'?JSON.parse(r.waitlist):(r.waitlist||[]),
         disabledDays:typeof r.disabledDays==='string'?JSON.parse(r.disabledDays):(r.disabledDays||[]),
         workHours:{start:r.workHoursStart||"5:00 م",end:r.workHoursEnd||"11:00 م"},
-        services:db.services||SVCS,
       };
+      // الخدمات تُقرأ من Firebase دائماً — ما في قيم احتياطية ثابتة
       if(r.services!==undefined){
         const loaded=typeof r.services==='string'?JSON.parse(r.services):r.services;
-        if(Array.isArray(loaded)){SVCS=loaded;db.services=loaded;}
+        if(Array.isArray(loaded)&&loaded.length>0){
+          SVCS=loaded;
+          db.services=loaded;
+        }
       }
-      
+      // لو selSvc محجوز ولكن الخدمة انمسحت — نصفّر الاختيار
+      if(selSvc&&!SVCS.find(s=>s.id===selSvc)){
+        selSvc=null;selSlot=null;kidsCount=0;kidsOverridePrice=0;kidsOverrideDuration=0;boysCount=0;boysOverridePrice=0;boysOverrideDuration=0;
+      }
     }
     const wh=db.workHours;
     document.getElementById('workBadge').textContent=`${wh.start} — ${wh.end}`;
@@ -674,14 +671,26 @@ function updateBtn(){
   else btn.textContent='اختار الخدمة واليوم والوقت';
 }
 
-function durLabel(d){return d<=15?'١٥ د':d<=30?'٣٠ د':d===45?'٤٥ د':d===60?'ساعة':d===90?'ساعة ونص':'ساعتين';}
+function durLabel(d){
+  if(d<=15)return'١٥ د';
+  if(d<=30)return'٣٠ د';
+  if(d<=45)return'٤٥ د';
+  if(d<=60)return'ساعة';
+  if(d<=90)return'ساعة ونص';
+  return'ساعتين';
+}
 
 function renderSvcs(){
   const g=document.getElementById('svcGrid');g.innerHTML='';
+  if(!SVCS||SVCS.length===0){
+    g.style.gridTemplateColumns='1fr';
+    g.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--border2);border-radius:10px;">⏳ جاري تحميل الخدمات...</div>';
+    return;
+  }
+  g.style.gridTemplateColumns='';
   SVCS.forEach(s=>{
     const b=document.createElement('button');
     b.className='svc-btn'+(selSvc===s.id?' sel':'');
-    const dur=s.duration||30;
     const isKids=isKidsSvc(s.id);
     const isBoys=isBoysSvc(s.id);
     const displayPrice=isKids&&kidsOverridePrice?kidsOverridePrice:isBoys&&boysOverridePrice?boysOverridePrice:s.price;
@@ -694,7 +703,7 @@ function renderSvcs(){
       } else if(isBoysSvc(s.id)){
         openBoysModal();
       } else {
-        kidsCount=0;boysCount=0;
+        kidsCount=0;boysCount=0;kidsOverridePrice=0;kidsOverrideDuration=0;boysOverridePrice=0;boysOverrideDuration=0;
         selSvc=s.id;selSlot=null;renderSvcs();renderSlots();updateBtn();
       }
     };
